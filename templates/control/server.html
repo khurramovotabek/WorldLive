@@ -1,0 +1,31 @@
+{% extends "control/base.html" %}
+{% block title %}Server{% endblock %}
+{% block body %}
+<section class="hero"><div><div class="eyebrow">{{ sys.host }} · {{ sys.os }}</div><h1>Server <i>salomatligi</i></h1></div>
+  <div class="live-pill glass"><span class="pulse"></span>ishlamoqda · {{ sys.uptime }}</div></section>
+<section class="kpis">
+  <div class="kpi glass"><span>Xotira (RAM)</span><b>{{ mem.p }}%</b><small>{{ mem.used }} / {{ mem.total }}</small><div class="meter"><i style="width:{{ mem.p|stringformat:".1f" }}%"></i></div></div>
+  <div class="kpi glass"><span>Disk</span><b>{{ disk.p }}%</b><small>{{ disk.free }} bo‘sh</small><div class="meter"><i style="width:{{ disk.p|stringformat:".1f" }}%"></i></div></div>
+  <div class="kpi glass"><span>Ma’lumotlar bazasi</span><b>{{ db_size }}</b><small>{{ sys.db }}</small></div>
+  <div class="kpi glass"><span>Yuklangan fayllar</span><b>{{ media }}</b><small>media</small></div>
+  <div class="kpi glass"><span>Ilova jarayoni</span><b>{{ proc }}</b><small>RSS xotira</small></div>
+</section>
+<section class="grid">
+  <div class="card glass span2">
+    <div class="card-h"><h2>So‘nggi 24 soat yuklama</h2><span class="faint">soatiga qadamlar (so‘rovlar)</span></div>
+    <div class="bars"><div class="gridlines"><i></i><i></i><i></i><i></i></div>
+      {% for r in rate %}<div class="col" data-tip="<b>{{ r.h }}:00</b><br>{{ r.n }} qadam"><div class="bar" style="height:{{ r.p|stringformat:".1f" }}%"></div><span>{{ r.h }}</span></div>{% endfor %}<div class="ymax">{{ rmax }}</div></div>
+  </div>
+  <div class="card glass">
+    <div class="card-h"><h2>CPU yuklama</h2><span class="faint">{{ sys.cpus }} yadro</span></div>
+    <div class="hbars">{% for l in load %}<div class="hb" data-tip="{{ l.l }}: {{ l.v }}"><span class="lbl">{{ l.l }}</span><div class="track"><div style="width:{{ l.p|stringformat:".1f" }}%"></div></div><b>{{ l.v }}</b></div>{% endfor %}</div>
+    <div class="card-h" style="margin-top:16px"><h2>Ma’lumotlar</h2></div>
+    <ul class="split">{% for n, v in counts %}<li><span>{{ n }}</span><b>{{ v }}</b></li>{% endfor %}</ul>
+  </div>
+  <div class="card glass span3">
+    <div class="card-h"><h2>Muhit</h2></div>
+    <ul class="split cols"><li><span>Python</span><b>{{ sys.py }}</b></li><li><span>Django</span><b>{{ sys.django }}</b></li><li><span>Vaqt zonasi</span><b>{{ sys.tz }}</b></li>
+      <li><span>DEBUG</span><b>{% if sys.debug %}⚠️ yoqilgan{% else %}✅ o‘chiq{% endif %}</b></li><li><span>Ishlash vaqti</span><b>{{ sys.uptime }}</b></li><li><span>Server</span><b>{{ sys.host }}</b></li></ul>
+  </div>
+</section>
+{% endblock %}

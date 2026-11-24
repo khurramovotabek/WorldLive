@@ -1,0 +1,5 @@
+{% if page.paginator.num_pages > 1 %}<div class="pager">
+  {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if kind %}&kind={{ kind }}{% endif %}">← Oldingi</a>{% endif %}
+  <span>{{ page.number }} / {{ page.paginator.num_pages }} · {{ page.paginator.count }} ta</span>
+  {% if page.has_next %}<a href="?page={{ page.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if kind %}&kind={{ kind }}{% endif %}">Keyingi →</a>{% endif %}
+</div>{% endif %}

@@ -1,0 +1,40 @@
+{% extends "control/base.html" %}
+{% block title %}Tahlil{% endblock %}
+{% block body %}
+<section class="hero"><div><div class="eyebrow">Chuqur tahlil · oxirgi {{ days }} kun</div><h1>Sayohatchilar <i>qanday</i> sayohat qiladi</h1></div>
+  <form class="search glass"><select name="days"><option value="7" {% if days == 7 %}selected{% endif %}>7 kun</option><option value="14" {% if days == 14 %}selected{% endif %}>14 kun</option><option value="30" {% if days == 30 %}selected{% endif %}>30 kun</option><option value="90" {% if days == 90 %}selected{% endif %}>90 kun</option></select><button>Ko‘rsatish</button></form></section>
+<section class="kpis">
+  <div class="kpi glass"><span>Sessiyalar</span><b>{{ sess.n }}</b><small>30 daq tanaffus bilan</small></div>
+  <div class="kpi glass"><span>O‘rtacha sessiya</span><b>{{ sess.median }}</b><small>median</small></div>
+  <div class="kpi glass"><span>Qadam / sessiya</span><b>{{ sess.avg_steps }}</b><small>o‘rtacha</small></div>
+  <div class="kpi glass"><span>Qaytib kelganlar</span><b>{{ ret.pct }}%</b><small>{{ ret.back }} / {{ ret.devs }} qurilma</small></div>
+  <div class="kpi glass"><span>Sessiya / qurilma</span><b>{{ sess.per_dev }}</b><small>o‘rtacha</small></div>
+</section>
+<section class="grid">
+  <div class="card glass span2">
+    <div class="card-h"><h2>Voronka</h2><span class="faint">har bosqichga yetgan noyob qurilmalar · % — oldingi bosqichdan</span></div>
+    <div class="hbars funnel">{% for f in funnel %}<div class="hb" data-tip="<b>{{ f.label }}</b><br>{{ f.n }} qurilma · {{ f.conv }}%"><span class="lbl">{{ f.label }}</span><div class="track"><div style="width:{{ f.w|stringformat:".1f" }}%"></div></div><b>{{ f.n }}</b><em class="faint">{{ f.conv|stringformat:".0f" }}%</em></div>{% endfor %}</div>
+  </div>
+  <div class="card glass">
+    <div class="card-h"><h2>Sessiya davomiyligi</h2></div>
+    <div class="hbars">{% for b in bdist %}<div class="hb" data-tip="{{ b.label }}: {{ b.n }} sessiya"><span class="lbl">{{ b.label }}</span><div class="track"><div style="width:{{ b.w|stringformat:".1f" }}%"></div></div><b>{{ b.n }}</b></div>{% endfor %}</div>
+  </div>
+  <div class="card glass span2">
+    <div class="card-h"><h2>Kun soatlari bo‘yicha faollik</h2><span class="faint">mahalliy vaqt · qadamlar</span></div>
+    <div class="bars" role="img" aria-label="Soatlik faollik"><div class="gridlines"><i></i><i></i><i></i><i></i></div>
+      {% for h in hours %}<div class="col" data-tip="<b>{{ h.h }}:00</b><br>{{ h.n }} qadam"><div class="bar" style="height:{{ h.p|stringformat:".1f" }}%"></div><span>{{ h.h }}</span></div>{% endfor %}</div>
+  </div>
+  <div class="card glass">
+    <div class="card-h"><h2>Hafta kunlari</h2></div>
+    <div class="hbars">{% for w in wdays %}<div class="hb" data-tip="{{ w.d }}: {{ w.n }} qadam"><span class="lbl">{{ w.d }}</span><div class="track"><div style="width:{{ w.p|stringformat:".1f" }}%"></div></div><b>{{ w.n }}</b></div>{% endfor %}</div>
+  </div>
+  <div class="card glass">
+    <div class="card-h"><h2>Eng ko‘p ko‘rilgan joylar</h2></div>
+    <div class="hbars">{% for p in places %}<div class="hb" data-tip="{{ p.name }}: {{ p.n }}"><span class="lbl">{{ p.name }}</span><div class="track"><div style="width:{{ p.w|stringformat:".1f" }}%"></div></div><b>{{ p.n }}</b></div>{% empty %}<p class="empty">—</p>{% endfor %}</div>
+  </div>
+  <div class="card glass span2">
+    <div class="card-h"><h2>Qadam turlari</h2></div>
+    <ul class="split cols">{% for k in kinds %}<li><span>{{ k.icon }} {{ k.label }}</span><b>{{ k.n }}</b></li>{% empty %}<li class="empty">—</li>{% endfor %}</ul>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "control/base.html" %}
+{% block title %}Xotiralar{% endblock %}
+{% block body %}
+<section class="hero"><div><div class="eyebrow">Barcha xotiralar · {{ stats.all }} ta · {{ stats.couples }} juftlik</div><h1>Har bir <i>lahza</i> saqlangan</h1></div>
+  <form class="search glass"><select name="kind"><option value="">Hammasi</option>
+    <option value="note" {% if kind == 'note' %}selected{% endif %}>✍️ Yozuv</option><option value="photo" {% if kind == 'photo' %}selected{% endif %}>📸 Surat</option><option value="postcard" {% if kind == 'postcard' %}selected{% endif %}>💌 Otkritka</option><option value="gift" {% if kind == 'gift' %}selected{% endif %}>🎁 Sovg‘a</option></select>
+    <input name="q" value="{{ q }}" placeholder="Matn, ism, shahar, kod…"><button>Qidirish</button></form></section>
+<section class="mem-grid">{% for r in rows %}
+  <article class="memc glass">
+    <header><span class="badge">{% if r.m.kind == 'photo' %}📸{% elif r.m.kind == 'postcard' %}💌{% elif r.m.kind == 'gift' %}🎁{% else %}✍️{% endif %} {{ r.m.kind }}</span><time>{{ r.m.created|date:"d.m.Y H:i" }}</time></header>
+    <h3>{{ r.city }}{% if r.place %} · <span>{{ r.place }}</span>{% endif %}</h3>
+    <p>{{ r.m.text|linebreaksbr|default:"—" }}</p>
+    <footer><b>{{ r.m.author|default:"—" }}</b> · <a href="{% url 'control-journey' r.m.journey.code %}">{{ r.m.journey.traveler_a }}{% if r.m.journey.traveler_b %} & {{ r.m.journey.traveler_b }}{% endif %} · <code>{{ r.m.journey.code }}</code></a>{% if r.m.open_on %}<br><small class="faint">⏳ {{ r.m.open_on|date:"d.m.Y" }} da ochiladi</small>{% endif %}</footer>
+  </article>{% empty %}<p class="empty glass card">Hali xotiralar yo‘q</p>{% endfor %}</section>
+<div class="card glass" style="margin-top:14px">{% include "control/_pager.html" %}</div>
+{% endblock %}

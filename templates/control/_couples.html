@@ -1,0 +1,15 @@
+<div class="table-wrap"><table class="tbl">
+  <thead><tr><th>Juftlik</th><th>Kod</th><th>Yo‘nalish</th><th class="num">km</th><th class="num">Qurilma</th><th class="num">Qadam</th><th>Oxirgi faollik</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr onclick="location.href='{% url 'control-journey' r.j.code %}'">
+      <td><div class="pair"><span class="av">{{ r.j.traveler_a|slice:":1"|upper }}</span><span class="av b">{{ r.j.traveler_b|slice:":1"|upper|default:"?" }}</span>
+        <div><b>{{ r.j.traveler_a }}</b> <span class="faint">&amp;</span> <b>{{ r.j.traveler_b|default:"—" }}</b>{% if r.live %} <span class="badge live">● online</span>{% endif %}</div></div></td>
+      <td><code>{{ r.j.code }}</code></td>
+      <td class="route">{% for c in r.route %}<span>{{ c }}</span>{% empty %}<span class="faint">hali uchmagan</span>{% endfor %}</td>
+      <td class="num">{{ r.km }}</td><td class="num">{{ r.devices }}</td><td class="num">{{ r.events }}</td>
+      <td class="faint">{{ r.last|date:"d.m.Y H:i" }}</td>
+    </tr>
+  {% empty %}<tr><td colspan="7" class="empty">Hali juftliklar yo‘q</td></tr>{% endfor %}
+  </tbody>
+</table></div>

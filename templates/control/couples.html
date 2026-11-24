@@ -1,0 +1,7 @@
+{% extends "control/base.html" %}
+{% block title %}Juftliklar{% endblock %}
+{% block body %}
+<section class="hero"><div><div class="eyebrow">Juftliklar</div><h1>Kim, kim bilan, <i>qayerga</i></h1></div>
+  <form class="search glass"><input name="q" value="{{ q }}" placeholder="Ism, kod yoki IP…"><button>Qidirish</button></form></section>
+<div class="card glass">{% include "control/_couples.html" %}{% include "control/_pager.html" %}</div>
+{% endblock %}

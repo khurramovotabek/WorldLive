@@ -1,0 +1,45 @@
+{% extends "control/base.html" %}
+{% block title %}{{ j.traveler_a }} & {{ j.traveler_b }}{% endblock %}
+{% block body %}
+<section class="hero">
+  <div><div class="eyebrow">Juftlik · <code>{{ j.code }}</code> · {{ j.created|date:"d.m.Y H:i" }} dan beri</div>
+    <h1>{{ j.traveler_a }} <i>&amp;</i> {{ j.traveler_b|default:"…" }}</h1></div>
+  {% if live %}<div class="live-pill glass"><span class="pulse"></span>hozir onlayn</div>{% endif %}
+</section>
+<section class="kpis">
+  <div class="kpi glass"><span>Shaharlar</span><b>{{ stamps|length }}</b><small>pasport muhrlari</small></div>
+  <div class="kpi glass"><span>Masofa</span><b>{{ km }}</b><small>km</small></div>
+  <div class="kpi glass"><span>Qurilmalar</span><b>{{ devices|length }}</b><small>ulangan</small></div>
+  <div class="kpi glass"><span>Qadamlar</span><b>{{ page.paginator.count }}</b><small>{% if kind %}filtr: {{ kind }}{% else %}jami{% endif %}</small></div>
+  <div class="kpi glass"><span>Xotiralar</span><b>{{ memories|length }}</b><small>yozuv va otkritka</small></div>
+</section>
+<section class="grid">
+  <div class="card glass span2">
+    <div class="card-h"><h2>Sayohat yo‘li</h2></div>
+    <ol class="route-line">{% for r in route %}<li><b>{{ r.name }}</b><small>{{ r.date|date:"d.m.Y H:i" }}{% if r.flight %} · {{ r.flight }}{% endif %}</small></li>{% empty %}<li class="empty">Hali parvoz yo‘q</li>{% endfor %}</ol>
+    <div class="card-h" style="margin-top:18px"><h2>Ko‘rilgan joylar</h2></div>
+    <div class="chips">{% for p in places %}<span>{{ p.city }} · {{ p.place }} <em>×{{ p.n }}</em></span>{% empty %}<span class="faint">—</span>{% endfor %}</div>
+  </div>
+  <div class="card glass">
+    <div class="card-h"><h2>Qurilmalar va IP</h2></div>
+    {% for d in devices %}<div class="dev"><div><b>{{ d.name|default:"—" }}</b> {% if d.role %}<span class="badge">{{ d.role|upper }}</span>{% endif %}<br>{% if d.kind == 'mobile' %}📱{% elif d.kind == 'tablet' %}📟{% else %}💻{% endif %} {{ d.os }} · {{ d.browser }} · {{ d.screen }}<br><small class="faint">{{ d.tz }} · {{ d.lang }} · oxirgi: {{ d.last_seen|date:"d.m H:i" }}</small></div>
+      <div class="ips">{% for ip in d.ips.all %}<span><code>{{ ip.ip }}</code> <small>×{{ ip.hits }}</small></span>{% endfor %}</div></div>
+    {% empty %}<p class="empty">Qurilma yo‘q</p>{% endfor %}
+  </div>
+  <div class="card glass">
+    <div class="card-h"><h2>Xotiralar</h2></div>
+    <ul class="mem">{% for m in memories %}<li><small>{{ m.created|date:"d.m H:i" }} · {{ m.author }} · {{ m.city }}{% if m.open_on %} · 💌 {{ m.open_on|date:"d.m.Y" }}{% endif %}</small>{{ m.text|truncatechars:160 }}</li>{% empty %}<li class="empty">—</li>{% endfor %}</ul>
+    <div class="card-h" style="margin-top:14px"><h2>Ularning musiqasi</h2></div>
+    <ul class="split">{% for t in tracks %}<li><span>{% if t.sp_id %}🎧{% else %}♫{% endif %} {{ t.title|truncatechars:40 }}</span><b class="faint">{{ t.city }}</b></li>{% empty %}<li class="empty">—</li>{% endfor %}</ul>
+  </div>
+  <div class="card glass span3">
+    <div class="card-h"><h2>Qadamlar xronologiyasi</h2>
+      <form class="inline"><select name="kind" onchange="this.form.submit()"><option value="">Barchasi</option>{% for k, v in kinds.items %}<option value="{{ k }}" {% if k == kind %}selected{% endif %}>{{ v.0 }} {{ v.1 }}</option>{% endfor %}</select></form></div>
+    <div class="table-wrap"><table class="tbl">
+      <thead><tr><th>Vaqt</th><th>Kim</th><th>Harakat</th><th>Tafsilot</th><th>Qurilma</th><th>IP</th></tr></thead>
+      <tbody>{% for e in rows %}<tr><td class="faint nowrap">{{ e.t }}</td><td><b>{{ e.who }}</b></td><td class="nowrap">{{ e.icon }} {{ e.label }}</td><td>{{ e.detail }}</td><td class="faint">{{ e.dev }}</td><td><code>{{ e.ip }}</code></td></tr>
+      {% empty %}<tr><td colspan="6" class="empty">—</td></tr>{% endfor %}</tbody></table></div>
+    {% include "control/_pager.html" %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,50 @@
+{
+ "vaadhoo-raa-atoll": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0b/Vaadhoo.jpg/1280px-Vaadhoo.jpg",
+  "page": "https://commons.wikimedia.org/wiki/File:Vaadhoo.jpg",
+  "artist": "Adrian.benko",
+  "license": "CC BY-SA 3.0"
+ },
+ "burj-al-arab": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d6/Burj_Al_Arab_Hotel%2C_Dubai%2C_UAE_%28Ank_Kumar%2C_Infosys%29_07.jpg/1280px-Burj_Al_Arab_Hotel%2C_Dubai%2C_UAE_%28Ank_Kumar%2C_Infosys%29_07.jpg",
+  "page": "https://commons.wikimedia.org/wiki/File:Burj_Al_Arab_Hotel,_Dubai,_UAE_(Ank_Kumar,_Infosys)_07.jpg",
+  "artist": "Ank Kumar",
+  "license": "CC BY-SA 4.0"
+ },
+ "blue-lagoon-geothermal-spa": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/47/Blue_Lagoon_Geothermal_Spa%2C_Grindav%C3%ADk%2C_Iceland_%2837917013312%29.jpg/1280px-Blue_Lagoon_Geothermal_Spa%2C_Grindav%C3%ADk%2C_Iceland_%2837917013312%29.jpg",
+  "page": "https://commons.wikimedia.org/wiki/File:Blue_Lagoon_Geothermal_Spa,_Grindav%C3%ADk,_Iceland_(37917013312).jpg",
+  "artist": "sikeri from Silver Spring, MD, USA",
+  "license": "CC BY 2.0"
+ },
+ "n-seoul-tower": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0a/Namsan_Tower_sunset%2C_Seoul.jpg/1280px-Namsan_Tower_sunset%2C_Seoul.jpg",
+  "page": "https://commons.wikimedia.org/wiki/File:Namsan_Tower_sunset,_Seoul.jpg",
+  "artist": "Rtflakfizer",
+  "license": "CC BY-SA 4.0"
+ },
+ "bassin-bleu": {
+  "src": "https://upload.wikimedia.org/wikipedia/commons/9/94/Bassin_Bleu%2C_Haiti.jpg",
+  "page": "https://commons.wikimedia.org/wiki/File:Bassin_Bleu,_Haiti.jpg",
+  "artist": "HOPE Art",
+  "license": "CC BY 2.0"
+ },
+ "national-monument-indonesia": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/49/Monumen_Nasional%2C_Jakarta%2C_Indonesia.jpg/1280px-Monumen_Nasional%2C_Jakarta%2C_Indonesia.jpg",
+  "page": "https://commons.wikimedia.org/wiki/File:Monumen_Nasional,_Jakarta,_Indonesia.jpg",
+  "artist": "Ramayoni",
+  "license": "CC BY-SA 4.0"
+ },
+ "istiqlal-mosque-jakarta": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f3/Jakarta_Panorama.jpg/1280px-Jakarta_Panorama.jpg",
+  "page": "https://commons.wikimedia.org/wiki/File:Jakarta_Panorama.jpg",
+  "artist": "Gunawan Kartapranata",
+  "license": "CC BY-SA 3.0"
+ },
+ "amboseli-national-park": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6c/Kilimanjaro_from_Amboseli.jpg/1280px-Kilimanjaro_from_Amboseli.jpg",
+  "page": "https://commons.wikimedia.org/wiki/File:Kilimanjaro_from_Amboseli.jpg",
+  "artist": "Sergey Pesterev",
+  "license": "CC BY-SA 4.0"
+ }
+}

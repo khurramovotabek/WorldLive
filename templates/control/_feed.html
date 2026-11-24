@@ -1,0 +1,4 @@
+<ul class="feed" id="feed">
+{% for e in rows %}<li data-id="{{ e.id }}"><span class="ic">{{ e.icon }}</span><div><b>{{ e.who }}</b> {{ e.label|lower }}{% if e.detail %} <span class="det">{{ e.detail }}</span>{% endif %}<small>{{ e.t }}{% if e.code %} · <a href="{% url 'control-journey' e.code %}">{{ e.code }}</a>{% endif %} · {{ e.dev }} · {{ e.ip }}</small></div></li>
+{% empty %}<li class="empty">Hali qadamlar yo‘q</li>{% endfor %}
+</ul>

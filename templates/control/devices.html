@@ -1,0 +1,18 @@
+{% extends "control/base.html" %}
+{% block title %}Qurilmalar{% endblock %}
+{% block body %}
+<section class="hero"><div><div class="eyebrow">Qurilmalar va IP manzillar</div><h1>Har bir <i>ekran</i> — bitta hikoya</h1></div>
+  <form class="search glass"><input name="q" value="{{ q }}" placeholder="Ism, IP, brauzer, OS, kod…"><button>Qidirish</button></form></section>
+<div class="card glass"><div class="table-wrap"><table class="tbl">
+  <thead><tr><th>Sayohatchi</th><th>Qurilma</th><th>IP manzillar</th><th>Ekran · til · zona</th><th class="num">Qadam</th><th>Birinchi</th><th>Oxirgi</th></tr></thead>
+  <tbody>{% for d in page %}
+  <tr>
+    <td><b>{{ d.name|default:"—" }}</b>{% if d.role %} <span class="badge">{{ d.role|upper }}</span>{% endif %}{% if d.last_seen > live_since %} <span class="badge live">● online</span>{% endif %}<br>{% if d.journey %}<a href="{% url 'control-journey' d.journey.code %}"><code>{{ d.journey.code }}</code></a>{% else %}<span class="faint">kirish sahifasida</span>{% endif %}</td>
+    <td>{% if d.kind == 'mobile' %}📱{% elif d.kind == 'tablet' %}📟{% else %}💻{% endif %} {{ d.os }} · {{ d.browser }}<br><small class="faint ua" title="{{ d.user_agent }}">{{ d.user_agent|truncatechars:70 }}</small></td>
+    <td class="ips">{% for ip in d.ips.all %}<span title="{{ ip.hits }} so‘rov · {{ ip.first_seen|date:'d.m H:i' }} – {{ ip.last_seen|date:'d.m H:i' }}"><code>{{ ip.ip }}</code> <small>×{{ ip.hits }}</small></span>{% empty %}—{% endfor %}</td>
+    <td class="faint">{{ d.screen }} · {{ d.lang }}<br>{{ d.tz }}</td>
+    <td class="num">{{ d.events }}</td>
+    <td class="faint">{{ d.first_seen|date:"d.m.Y H:i" }}</td><td class="faint">{{ d.last_seen|date:"d.m.Y H:i" }}</td>
+  </tr>{% empty %}<tr><td colspan="7" class="empty">Qurilmalar yo‘q</td></tr>{% endfor %}</tbody>
+</table></div>{% include "control/_pager.html" %}</div>
+{% endblock %}

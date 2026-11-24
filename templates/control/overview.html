@@ -1,0 +1,78 @@
+{% extends "control/base.html" %}
+{% block title %}Umumiy{% endblock %}
+{% block body %}
+<section class="hero">
+  <div><div class="eyebrow">Boshqaruv markazi</div><h1>Bugun dunyo bo‘ylab <i>{{ kpi.today }}</i> qurilma sayohat qildi</h1></div>
+  <div class="live-pill glass"><span class="pulse"></span><b id="liveN">{{ kpi.live }}</b> hozir onlayn</div>
+</section>
+
+<section class="kpis">
+  <div class="kpi glass"><span>Qurilmalar</span><b>{{ kpi.devices }}</b><small>jami noyob</small></div>
+  <div class="kpi glass"><span>Juftliklar</span><b>{{ kpi.couples }}</b><small>{{ kpi.journeys }} sayohatdan</small></div>
+  <div class="kpi glass"><span>Parvozlar</span><b>{{ kpi.flights }}</b><small>qo‘nishlar</small></div>
+  <div class="kpi glass"><span>Masofa</span><b>{{ kpi.km }}</b><small>km birgalikda</small></div>
+  <div class="kpi glass"><span>Bugungi qadamlar</span><b>{{ kpi.steps_today }}</b><small>harakatlar</small></div>
+</section>
+
+<section class="grid">
+  <div class="card glass span2">
+    <div class="card-h"><h2>Faol qurilmalar</h2><span class="faint">oxirgi 14 kun · kunlik noyob qurilmalar</span></div>
+    <div class="bars" role="img" aria-label="Kunlik faol qurilmalar">
+      <div class="gridlines"><i></i><i></i><i></i><i></i></div>
+      {% for s in series %}<div class="col" data-tip="<b>{{ s.d }}</b><br>{{ s.devs }} qurilma · {{ s.n }} qadam"><div class="bar" style="height:{{ s.h|stringformat:".1f" }}%"></div><span>{{ s.d|slice:":2" }}</span></div>{% endfor %}
+      <div class="ymax">{{ peak }}</div>
+    </div>
+    <details class="tview"><summary>Jadval ko‘rinishi</summary><table class="tbl mini"><tr><th>Sana</th><th class="num">Qurilma</th><th class="num">Qadam</th></tr>{% for s in series %}<tr><td>{{ s.d }}</td><td class="num">{{ s.devs }}</td><td class="num">{{ s.n }}</td></tr>{% endfor %}</table></details>
+  </div>
+
+  <div class="card glass">
+    <div class="card-h"><h2>Qurilma turlari</h2></div>
+    <ul class="split">{% for k in kinds %}<li><span>{% if k.kind == 'mobile' %}📱 Mobil{% elif k.kind == 'tablet' %}📟 Planshet{% else %}💻 Kompyuter{% endif %}</span><b>{{ k.n }}</b></li>{% empty %}<li class="empty">—</li>{% endfor %}</ul>
+    <div class="card-h" style="margin-top:14px"><h2>Brauzerlar</h2></div>
+    <ul class="split">{% for b in browsers %}<li><span>{{ b.browser|default:"—" }}</span><b>{{ b.n }}</b></li>{% empty %}<li class="empty">—</li>{% endfor %}</ul>
+  </div>
+
+  <div class="card glass">
+    <div class="card-h"><h2>Eng sevimli shaharlar</h2><span class="faint">kirishlar</span></div>
+    <div class="hbars">{% for c in top_cities %}<div class="hb" data-tip="<b>{{ c.name }}</b><br>{{ c.n }} marta kirildi"><span class="lbl">{{ c.name }}</span><div class="track"><div style="width:{{ c.w|stringformat:".1f" }}%"></div></div><b>{{ c.n }}</b></div>{% empty %}<p class="empty">Hali ma’lumot yo‘q</p>{% endfor %}</div>
+  </div>
+
+  <div class="card glass">
+    <div class="card-h"><h2>Top qo‘shiqlar</h2><span class="faint">ijrolar</span></div>
+    <ol class="songs">{% for s in top_songs %}<li><div><b>{{ s.title }}</b><span>{{ s.artist }}</span></div><em>{{ s.n }}</em></li>{% empty %}<li class="empty">Hali ijrolar yo‘q</li>{% endfor %}</ol>
+  </div>
+
+  <div class="card glass span-feed">
+    <div class="card-h"><h2>Jonli qadamlar</h2><span class="faint">har 5 soniyada yangilanadi</span></div>
+    {% include "control/_feed.html" with rows=feed %}
+  </div>
+
+  <div class="card glass span3">
+    <div class="card-h"><h2>So‘nggi juftliklar</h2><a href="{% url 'control-couples' %}">Hammasi →</a></div>
+    {% include "control/_couples.html" with rows=couples %}
+  </div>
+</section>
+{% endblock %}
+{% block js %}
+<script>
+  (() => {
+    const feed = document.getElementById("feed"), liveN = document.getElementById("liveN");
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+    let since = +(feed.querySelector("li[data-id]")?.dataset.id || 0);
+    setInterval(async () => {
+      try {
+        const r = await (await fetch("/control/live?since=" + since, { credentials: "same-origin" })).json();
+        liveN.textContent = r.live;
+        r.rows.reverse().forEach((e) => {
+          since = Math.max(since, e.id);
+          feed.querySelector(".empty")?.remove();
+          const li = document.createElement("li"); li.dataset.id = e.id; li.className = "new";
+          li.innerHTML = `<span class="ic">${esc(e.icon)}</span><div><b>${esc(e.who)}</b> ${esc(e.label.toLowerCase())}${e.detail ? ` <span class="det">${esc(e.detail)}</span>` : ""}<small>${esc(e.t)}${e.code ? ` · <a href="/control/couple/${esc(e.code)}">${esc(e.code)}</a>` : ""} · ${esc(e.dev)} · ${esc(e.ip)}</small></div>`;
+          feed.prepend(li);
+          while (feed.children.length > 60) feed.lastElementChild.remove();
+        });
+      } catch {}
+    }, 5000);
+  })();
+</script>
+{% endblock %}

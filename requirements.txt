@@ -1,0 +1,5 @@
+Django==5.2.19
+asgiref==3.13.0
+sqlparse==0.6.1
+pillow==13.0.0
+gunicorn==23.0.0

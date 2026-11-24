@@ -1,0 +1,11 @@
+{% extends "control/base.html" %}
+{% block title %}Qadamlar{% endblock %}
+{% block body %}
+<section class="hero"><div><div class="eyebrow">Qadamlar jurnali</div><h1>Har bir <i>harakat</i> saqlanadi</h1></div>
+  <form class="search glass"><select name="kind"><option value="">Barcha turlar</option>{% for k, v in kinds.items %}<option value="{{ k }}" {% if k == kind %}selected{% endif %}>{{ v.0 }} {{ v.1 }}</option>{% endfor %}</select><input name="q" value="{{ q }}" placeholder="Ism, IP, kod, shahar…"><button>Filtr</button></form></section>
+<div class="card glass"><div class="table-wrap"><table class="tbl">
+  <thead><tr><th>Vaqt</th><th>Kim</th><th>Harakat</th><th>Tafsilot</th><th>Qurilma</th><th>IP</th></tr></thead>
+  <tbody>{% for e in rows %}<tr><td class="faint nowrap">{{ e.t }}</td><td><b>{{ e.who }}</b>{% if e.code %}<br><a href="{% url 'control-journey' e.code %}"><code>{{ e.code }}</code></a>{% endif %}</td><td class="nowrap">{{ e.icon }} {{ e.label }}</td><td>{{ e.detail }}</td><td class="faint">{{ e.dev }}</td><td><code>{{ e.ip }}</code></td></tr>
+  {% empty %}<tr><td colspan="6" class="empty">Qadamlar yo‘q</td></tr>{% endfor %}</tbody>
+</table></div>{% include "control/_pager.html" %}</div>
+{% endblock %}
