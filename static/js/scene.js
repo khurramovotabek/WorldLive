@@ -37,8 +37,8 @@ export class CityScene {
       <button class="snav prev glass" data-sprev aria-label="‹">‹</button><button class="snav next glass" data-snext aria-label="›">›</button>
       <div class="tour glass pill" data-tour>
         <button data-tp aria-label="pause"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
-        <span class="tour-ring"><i data-tring></i></span><b data-tt>0:45</b>
-        <button data-tdur title="${t("tourDur")}">45s</button>
+        <span class="tour-ring"><i data-tring></i></span><b data-tt>0:30</b>
+        <button data-tdur title="${t("tourDur")}">30s</button>
         <button data-tn aria-label="next">${t("nextPlace")} ›</button>
       </div>
       <div class="place-card glass dense" data-card></div>
@@ -155,13 +155,13 @@ export class CityScene {
   _tourInit() {
     if (this._tourReady) return; this._tourReady = true;
     const r = this.root, DURS = [15, 30, 45, 60];
-    this.tourDur = +(localStorage.getItem("wl-tour") || 45); this.tourOn = localStorage.getItem("wl-tour-on") !== "0";
+    this.tourDur = +(localStorage.getItem("wl-tour2") || 30); this.tourOn = localStorage.getItem("wl-tour-on") !== "0";
     const step = (d) => { if (!this.city) return; const n = this.city.attractions.length; this.show((this.idx + d + n) % n); emit("scene:place", this.idx); };
     $("[data-tn]", r).onclick = () => { step(1); track("tour", { city: this.city?.key, d: { dur: this.tourDur } }); };
     $("[data-snext]", r).onclick = () => step(1);
     $("[data-sprev]", r).onclick = () => step(-1);
     $("[data-tp]", r).onclick = () => { this.tourOn = !this.tourOn; try { localStorage.setItem("wl-tour-on", this.tourOn ? "1" : "0"); } catch {} this._tourT0 = performance.now() - this._tourEl; this._tourPaint(); };
-    $("[data-tdur]", r).onclick = () => { this.tourDur = DURS[(DURS.indexOf(this.tourDur) + 1) % DURS.length]; try { localStorage.setItem("wl-tour", this.tourDur); } catch {} this._tourReset(); };
+    $("[data-tdur]", r).onclick = () => { this.tourDur = DURS[(DURS.indexOf(this.tourDur) + 1) % DURS.length]; try { localStorage.setItem("wl-tour2", this.tourDur); } catch {} this._tourReset(); };
     // swipe between places on touch screens
     let sx = null, sy = 0;
     r.addEventListener("touchstart", (e) => { if (e.target.closest(".place-card, .rail, .tour, .dock, .sheet, button, input, textarea")) { sx = null; return; } sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
@@ -195,15 +195,31 @@ export class CityScene {
   show(i, first) {
     if (i === this.idx || !this.city) return;
     this.idx = i;
-    const a = this.city.attractions[i], src = a?.photo?.src || this.city.photo?.src || "";
-    const back = this.front === this.layerA ? this.layerB : this.layerA;
-    const img = new Image();
-    img.onload = img.onerror = () => {
+    const a = this.city.attractions[i], city = this.city;
+    // only the latest request may paint: a slow photo of the previous city must never land on this one
+    const tok = (this._showTok = (this._showTok || 0) + 1);
+    const tries = [a?.photo?.src, city.photo?.src, ...city.attractions.map((x) => x.photo?.src)].filter((x, k, arr) => x && arr.indexOf(x) === k);
+    const paint = (src) => {
+      if (tok !== this._showTok || this.city !== city) return;
+      const back = this.front === this.layerA ? this.layerB : this.layerA;
       back.style.backgroundImage = `url("${src}")`;
       back.style.animation = "none"; void back.offsetWidth; back.style.animation = "";
       back.style.opacity = 1; this.front.style.opacity = 0; this.front = back;
     };
-    img.src = src;
+    const load = (k) => {
+      if (k >= tries.length || tok !== this._showTok) return;
+      const img = new Image();
+      img.onload = () => paint(tries[k]);
+      img.onerror = () => load(k + 1);   // a broken photo falls back to the city's next best one
+      img.src = tries[k];
+    };
+    // a new city: show its small thumbnail at once (usually cached) instead of the last city's picture
+    if (first && this._painted !== city.key) {
+      this._painted = city.key;
+      const thumb = tries[0]?.replace(/\/\d+px-/, "/250px-");
+      [this.layerA, this.layerB].forEach((l) => { l.style.backgroundImage = thumb ? `url("${thumb}")` : "none"; });
+    }
+    load(0);
     $$("[data-rail] button", this.root).forEach((b, k) => b.classList.toggle("on", k === i));
     if (this.tab === "places") this._card();
     track("place", { city: this.city.key, place: a?.id, d: { season: this.season } });

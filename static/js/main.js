@@ -697,8 +697,9 @@ function push(patch) {
 function startSync() {
   const beat = () => push({ ["seen_" + WL.role]: Date.now(), ...(WL.mid ? { ["seen_" + WL.mid]: Date.now() } : {}) });
   beat(); setInterval(beat, 20000);
-  let busy = false, lastPoll = 0;
+  let busy = false, again = false, lastPoll = 0;
   const poll = async (force) => {
+    if (busy && force) { again = true; return; }   // a change arrived mid-request: fetch again right after
     if (!WL.journey || busy || (!force && document.hidden)) return;
     if (!force && WL.rt?.up && Date.now() - lastPoll < 15000) return;   // the socket tells us when something changes
     busy = true; lastPoll = Date.now();
@@ -732,7 +733,7 @@ function startSync() {
       if (s.tod && s.tod !== WL.tod) { WL.tod = s.tod; WL._cycTod = null; applyAtmos(); }
       void other;
       checkGifts();
-    } catch {} finally { busy = false; }
+    } catch {} finally { busy = false; if (again) { again = false; setTimeout(() => poll(true), 0); } }
   };
   setInterval(poll, 2500);
   on("rt:v", (m) => { if (m.v > (WL.version || 0)) poll(true); });

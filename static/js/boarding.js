@@ -272,11 +272,13 @@ function nameTag(name, girl) {
  * World-space retarget (rigs with different bone axes): for every frame,
  * targetWorld = sourceWorld · sourceRestWorld⁻¹ · targetRestWorld, then back to local space.
  */
-function bakeRetarget(model, src, clip, fps = 30) {
+function bakeRetarget(model, src, clip, fps = 30, restT = null) {
   const key = (n) => n.replace(/^mixamorig:?/, "");
   const wq = (o) => o.getWorldQuaternion(new THREE.Quaternion());
   const sBones = {}; src.traverse((o) => (sBones[key(o.name)] = o));
   const restS = new Map(); src.traverse((o) => restS.set(o, o.quaternion.clone()));
+  // a T-posed target is matched against the source's own T-pose (its node rest is closer to an A-pose)
+  if (restT) src.traverse((o) => { const q = restT[o.name]; if (q) o.quaternion.copy(q); });
   src.updateMatrixWorld(true); model.updateMatrixWorld(true);
   const tBones = []; model.traverse((o) => { if (o.isBone) tBones.push(o); });
   const WT = new Map(), WS = new Map(), localT = new Map();
@@ -393,12 +395,12 @@ function dressUp(model, girl, look = 0) {
   }
   if (!girl && bones.Spine2) shirtFront(model, bones);
   if (girl && bones.Hips) {
-    // a soft white dress from the waist to below the knee, swaying with the hips
-    const prof = [[0.135, 0.06], [0.15, 0], [0.19, -0.18], [0.25, -0.42], [0.3, -0.62], [0.31, -0.66]].map(([r, y]) => new THREE.Vector2(r, y));
+    // a soft white gown from the waist to the ankles (A-line, room for a stride), swaying with the hips
+    const prof = [[0.135, 0.06], [0.155, 0], [0.205, -0.18], [0.27, -0.42], [0.33, -0.66], [0.375, -0.84], [0.38, -0.865], [0.37, -0.875]].map(([r, y]) => new THREE.Vector2(r, y));
     const skirt = new THREE.Mesh(new THREE.LatheGeometry(prof, 40), new THREE.MeshPhysicalMaterial({ color: DRESSES[look % DRESSES.length], roughness: 0.55, sheen: 1, sheenColor: new THREE.Color(0xffffff), sheenRoughness: 0.5, side: THREE.DoubleSide }));
     skirt.castShadow = true; skirt.name = "dress";
     const hip = bones.Hips, ws = hip.getWorldScale(new THREE.Vector3());
-    skirt.scale.set(1 / ws.x, 1 / ws.y, 1 / ws.z);
+    skirt.scale.set(1 / ws.x, 1 / ws.y, 1.1 / ws.z);   // deeper front-to-back: a full stride stays inside the gown
     model.updateMatrixWorld(true);
     // keep the skirt upright in world space whatever the hip bone's own axes are
     const hq = hip.getWorldQuaternion(new THREE.Quaternion()).invert(); skirt.quaternion.copy(hq);
@@ -467,14 +469,15 @@ function realPerson(gltf, clips, height, name, girl, rest = {}, assets = null, l
   const mixer = new THREE.AnimationMixer(model);
   const clipFor = (nm) => {
     const c = clips.find((x) => x.name === nm);
-    if (!girl || !assets) return fit(c);
-    return (assets.baked[nm] ||= bakeRetarget(model, assets.src, c)); // bone names are identical across clones
+    if (!assets) return fit(c);
+    // both rigs: a world-space bake (rest-pose aware), so arms swing low and natural instead of flailing
+    return (assets.baked[(girl ? "f:" : "m:") + nm] ||= bakeRetarget(model, assets.src, c)); // bone names are identical across clones
   };
   const walk = mixer.clipAction(clipFor("Walk")), idle = mixer.clipAction(clipFor("Idle"));
   walk.play(); idle.play(); idle.setEffectiveWeight(0);
   walk.time = (girl ? 0.45 : 0) + look * 0.13; // out of step, like real people
   if (name) { const tag = nameTag(name, girl); tag.position.y = height + 0.28; root.add(tag); }
-  root.userData = { real: true, mixer, walk, idle, w: 1, bones: rig, girl };
+  root.userData = { real: true, mixer, walk, idle, w: 1, bones: rig, girl, h: height };
   return root;
 }
 // two-bone CCD: pull one arm so its hand meets `target` (world space)
@@ -513,7 +516,42 @@ function animate(p, walking, dt, T) {
   u.w += ((walking ? 1 : 0) - u.w) * Math.min(1, dt * 4);   // smooth walk ↔ idle blend
   u.walk.setEffectiveWeight(u.w); u.idle.setEffectiveWeight(1 - u.w);
   u.mixer.update(dt);
+  relaxArms(p);
 }
+/** a natural arm: the forearm follows the upper arm's swing with a soft ~15° bend, the hand stays by the thigh
+ *  (the source clip's elbows are flexed for a different rig, which read as stiff, raised forearms) */
+const _sh = new THREE.Vector3(), _el = new THREE.Vector3(), _hd = new THREE.Vector3(), _tg = new THREE.Vector3(), _fw = new THREE.Vector3(), _ax = new THREE.Vector3();
+function relaxArms(p, weight = 1) {
+  const B = p.userData.bones;
+  if (!B || weight <= 0) return;
+  p.updateMatrixWorld(true);
+  _fw.set(0, 0, 1).applyQuaternion(p.getWorldQuaternion(new THREE.Quaternion()));
+  for (const s of ["Left", "Right"]) {
+    const arm = B[s + "Arm"], fore = B[s + "ForeArm"], hand = B[s + "Hand"];
+    if (!arm || !fore || !hand) continue;
+    // 1) keep the clip's forward/back swing but bring the arm in beside the body (no sideways flaring)
+    arm.getWorldPosition(_sh); hand.getWorldPosition(_hd);
+    const sL = p.worldToLocal(_sh.clone()), hL = p.worldToLocal(_hd.clone()), L = sL.distanceTo(hL);
+    const out = Math.sign(sL.x || (s === "Left" ? 1 : -1)), maxOut = L * 0.16;
+    const dx = (hL.x - sL.x) * out;
+    if (dx > maxOut || dx < -0.02) {
+      const z = Math.max(-L * 0.45, Math.min(L * 0.5, hL.z - sL.z)), x = Math.max(0, Math.min(maxOut, dx)) * out;
+      const y = -Math.sqrt(Math.max(0, L * L * 0.97 - z * z - x * x));
+      reach(arm, fore, hand, p.localToWorld(new THREE.Vector3(sL.x + x, sL.y + y, sL.z + z)), weight);
+    }
+    arm.getWorldPosition(_sh); fore.getWorldPosition(_el); hand.getWorldPosition(_hd);
+    const len = _hd.distanceTo(_el), up = _tg.subVectors(_el, _sh).normalize();
+    // continue the upper arm, then bend gently forward (elbows flex forward, never sideways)
+    _tg.copy(up).multiplyScalar(len * 0.97).addScaledVector(_fw, len * 0.26).add(_el);
+    const toE = _ax.subVectors(_hd, _el).normalize(), toT = _hd.subVectors(_tg, _el).normalize();
+    const q = new THREE.Quaternion().setFromUnitVectors(toE, toT);
+    if (weight < 1) q.slerp(new THREE.Quaternion(), 1 - weight);
+    const bw = fore.getWorldQuaternion(new THREE.Quaternion()), pw = fore.parent.getWorldQuaternion(new THREE.Quaternion());
+    fore.quaternion.copy(pw.invert().multiply(q.multiply(bw)));
+    fore.updateMatrixWorld(true);
+  }
+}
+export { relaxArms };
 
 // ------------------------------------------------------------------ the airport around the plane
 function airport(scene, tod) {
