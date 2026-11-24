@@ -1,9 +1,9 @@
 // WorldLive — Living Earth: real-sun day/night shader, clouds, borders, markers, flights
-import { distanceKm, emit, flag, greatCircle, QUALITY, subsolar } from "./core.js";
+import { distanceKm, emit, flag, greatCircle, QUALITY, subsolar, STATIC } from "./core.js";
 import { L } from "./i18n.js";
 
 const THREE = window.THREE;
-const IMG = "/static/img/earth/";
+const IMG = STATIC + "img/earth/";
 
 const earthShader = {
   vertexShader: `
@@ -159,7 +159,7 @@ export class Earth {
   // (globe.gl polygon layers cost ~23 ms/frame on integrated GPUs — far too slow.)
   async _borders() {
     try {
-      const geo = await (await fetch("/static/data/countries.geojson")).json();
+      const geo = await (await fetch(STATIC + "data/countries.geojson")).json();
       const ours = new Set(this.cities.map((c) => c.country));
       const A = [], B = [];
       const iso = (p) => (p.ISO_A2 !== "-99" ? p.ISO_A2 : p.WB_A2 !== "-99" ? p.WB_A2 : { NOR: "NO" }[p.ADM0_A3] || p.ADM0_A3);

@@ -2,7 +2,7 @@
 // A procedural airliner on the apron (no external models), airstairs, and two stylised travellers —
 // the couple — walking hand in hand, climbing up (board) or coming down (arrive). The city's real
 // skyline glows on the horizon. ~10 s, skippable, disposed completely afterwards.
-import { $, h } from "./core.js";
+import { $, h, STATIC } from "./core.js";
 import { L, t } from "./i18n.js";
 
 const THREE = window.THREE;
@@ -242,10 +242,10 @@ const loadScript = (src) => new Promise((ok, no) => {
 function loadPeople() {
   if (!ASSETS) {
     ASSETS = (async () => {
-      await loadScript("/static/vendor/wl-3d.js");
+      await loadScript(STATIC + "vendor/wl-3d.js");
       const { GLTFLoader, MeshoptDecoder } = window.THREE_EX;
       const ld = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
-      const [him, her, anim] = await Promise.all(["him", "her", "anim"].map((n) => ld.loadAsync(`/static/models/${n}.glb`)));
+      const [him, her, anim] = await Promise.all(["him", "her", "anim"].map((n) => ld.loadAsync(`${STATIC}models/${n}.glb`)));
       // rest pose of the source rig, needed to retarget its rotations onto other skeletons
       const rest = {}; anim.scene.traverse((o) => (rest[o.name] = o.quaternion.clone()));
       // the source rig's true T-pose (its node rest is closer to an A-pose) — matches a T-posed target

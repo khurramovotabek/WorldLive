@@ -3,7 +3,7 @@
 //   • balloon   — Cappadocia at dawn: in the basket together, the burner roaring, dozens of balloons around
 //   • paraglide — a tandem wing gliding over the landscape, the two of them hanging side by side
 // The same moment opens on every device of the journey (main.js shares it through the journey state).
-import { $, h } from "./core.js";
+import { $, h, STATIC } from "./core.js";
 import { L, t } from "./i18n.js";
 import { loadPeople, reach, realPerson } from "./boarding.js";
 
@@ -215,7 +215,7 @@ export async function balloon({ city, party }) {
   // the real valley at dawn wraps around the horizon
   const pano = new THREE.Mesh(new THREE.CylinderGeometry(420, 420, 300, 96, 1, true), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.BackSide, toneMapped: false, fog: false }));
   pano.position.y = 40; scene.add(pano);
-  photoTex("/static/img/scenes/cappadocia.jpg", (tx) => { if (tx) { tx.wrapS = THREE.MirroredRepeatWrapping; tx.repeat.x = 4; pano.material.map = tx; pano.material.needsUpdate = true; } });
+  photoTex(STATIC + "img/scenes/cappadocia.jpg", (tx) => { if (tx) { tx.wrapS = THREE.MirroredRepeatWrapping; tx.repeat.x = 4; pano.material.map = tx; pano.material.needsUpdate = true; } });
   const ground = new THREE.Mesh(new THREE.CircleGeometry(420, 48), new THREE.MeshBasicMaterial({ color: 0xb59a7e, fog: true })); ground.rotation.x = -Math.PI / 2; ground.position.y = -110; scene.add(ground);
   scene.add(new THREE.HemisphereLight(0xffe2c4, 0x8a6a50, 1.15));
   const sun = new THREE.DirectionalLight(0xffc690, 2.4); sun.position.set(-30, 18, -40); scene.add(sun);
@@ -282,7 +282,7 @@ export async function paraglide({ city, place, party }) {
   scene.background = new THREE.Color(0x9cc4e8);
   const pano = new THREE.Mesh(new THREE.CylinderGeometry(300, 300, 220, 96, 1, true), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.BackSide, toneMapped: false }));
   pano.position.y = -30; scene.add(pano);
-  const src = city.key === "cappadocia" ? "/static/img/scenes/cappadocia.jpg" : (city.photo || place?.photo)?.src;
+  const src = city.key === "cappadocia" ? STATIC + "img/scenes/cappadocia.jpg" : (city.photo || place?.photo)?.src;
   photoTex(src, (tx) => { if (tx) { tx.wrapS = THREE.MirroredRepeatWrapping; tx.repeat.x = 4; pano.material.map = tx; pano.material.needsUpdate = true; } });
   scene.add(new THREE.HemisphereLight(0xffffff, 0x6a7a60, 1.2));
   const sun = new THREE.DirectionalLight(0xfff0d8, 2.2); sun.position.set(10, 30, 10); scene.add(sun);

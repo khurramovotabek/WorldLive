@@ -1,5 +1,5 @@
 // WorldLive — application orchestrator
-import { $, $$, api, on, upload, distanceKm, esc, flag, flightMinutes, fmtDur, glassLight, h, seasonNow, sleep, store, timeIn, toast, todFromSun } from "./core.js";
+import { $, $$, api, on, upload, distanceKm, esc, flag, flightMinutes, fmtDur, glassLight, h, seasonNow, sleep, store, timeIn, toast, todFromSun, STATIC } from "./core.js";
 import { Earth } from "./globe.js";
 import { applyI18n, getLang, L, onLang, setLang, t } from "./i18n.js";
 import { playBoarding, preloadBoarding } from "./boarding.js";
@@ -17,7 +17,7 @@ const byKey = (k) => WL.world.cities.find((c) => c.key === k);
 async function boot() {
   glassLight();
   applyI18n();
-  const [world, config] = await Promise.all([fetch("/static/data/world.json").then((r) => r.json()), api("config").catch(() => ({}))]);
+  const [world, config] = await Promise.all([fetch(STATIC + "data/world.json").then((r) => r.json()), api("config").catch(() => ({}))]);
   WL.world = world; WL.config = config;
   WL.earth = new Earth($("#globe"), world);
   WL.earth.onPick = (c) => preview(c);

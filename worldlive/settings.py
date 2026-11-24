@@ -149,7 +149,21 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+def _build_id():
+    # hash of the shipped code + styles + data: changes exactly when a deploy changes something
+    import hashlib
+    h = hashlib.sha1()
+    for sub in ('js', 'css', 'data', 'vendor'):
+        d = BASE_DIR / 'static' / sub
+        for f in sorted(d.rglob('*')) if d.exists() else []:
+            if f.is_file():
+                h.update(f.name.encode()); h.update(f.read_bytes())
+    return h.hexdigest()[:10]
+
+
+STATIC_BUILD = os.environ.get('WL_BUILD') or _build_id()
+# versioned: /static/v/<build>/js/main.js — browsers can never mix an old module with a new page
+STATIC_URL = f'static/v/{STATIC_BUILD}/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'

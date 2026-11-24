@@ -1,3 +1,5 @@
+// static root of this build (…/static/v/<build>/), derived from where this module was loaded
+export const STATIC = new URL("../", import.meta.url).href;
 // WorldLive — shared core: store, API, geo + solar maths, DOM helpers
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
