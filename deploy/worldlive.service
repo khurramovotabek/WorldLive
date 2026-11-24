@@ -1,0 +1,15 @@
+[Unit]
+Description=WorldLive (gunicorn)
+After=network.target
+
+[Service]
+User=worldlive
+Group=worldlive
+WorkingDirectory=/opt/worldlive/app
+EnvironmentFile=/opt/worldlive/.env
+ExecStart=/opt/worldlive/venv/bin/gunicorn worldlive.wsgi:application --bind 127.0.0.1:8020 --workers 3 --timeout 60 --access-logfile -
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

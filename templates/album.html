@@ -1,0 +1,71 @@
+{% load static %}<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{{ T.t }} · WorldLive</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Manrope:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root { --ink: #1b1813; --soft: #6b6457; --gold: #b8914a; --paper: #f8f4ec; --line: rgba(27, 24, 19, .12); }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #e9e3d6; color: var(--ink); font: 15px/1.6 Manrope, system-ui, sans-serif; }
+    .bar { position: sticky; top: 0; z-index: 2; display: flex; justify-content: center; gap: 10px; padding: 12px 16px; background: rgba(233, 227, 214, .85); backdrop-filter: blur(10px); }
+    .bar button, .bar a { border: 0; border-radius: 999px; padding: 10px 18px; font: 600 13px/1 Manrope, sans-serif; cursor: pointer; text-decoration: none; color: #14110c; background: linear-gradient(135deg, #e9c98b, #c9a564); }
+    .bar a { background: rgba(0, 0, 0, .07); }
+    .page { width: min(860px, calc(100% - 32px)); margin: 24px auto; background: var(--paper); border-radius: 6px; box-shadow: 0 30px 80px rgba(60, 45, 20, .18); overflow: hidden; }
+    .cover { position: relative; min-height: 560px; display: grid; place-items: end start; padding: 48px; color: #fff; background: #1b1813 center/cover; }
+    .cover::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, .1), rgba(0, 0, 0, .7)); }
+    .cover > * { position: relative; }
+    .eyebrow { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: #e9c98b; }
+    h1 { font: 500 clamp(44px, 8vw, 78px)/1 'Cormorant Garamond', serif; margin: 10px 0 12px; }
+    h1 i { color: #e9c98b; }
+    .names { font: italic 500 24px/1.3 'Cormorant Garamond', serif; }
+    .stats { display: flex; gap: 28px; margin-top: 22px; flex-wrap: wrap; }
+    .stats b { display: block; font: 600 30px/1 'Cormorant Garamond', serif; } .stats span { font-size: 12px; opacity: .8; }
+    .ch { padding: 48px; border-top: 1px solid var(--line); break-inside: avoid; page-break-before: always; }
+    .ch .eyebrow { color: var(--gold); }
+    .ch h2 { font: 500 48px/1.05 'Cormorant Garamond', serif; margin: 6px 0 4px; }
+    .ch .meta { color: var(--soft); font-size: 13px; }
+    .hero { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 4px; margin: 22px 0 10px; display: block; background: #ddd; }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .pair img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: 4px; background: #ddd; }
+    .places { color: var(--soft); font-size: 13px; margin: 14px 0 0; }
+    .mems { margin-top: 22px; display: grid; gap: 12px; }
+    .mem { padding: 16px 18px; border-left: 2px solid var(--gold); background: rgba(184, 145, 74, .06); }
+    .mem q { font: italic 500 21px/1.4 'Cormorant Garamond', serif; quotes: "“" "”"; }
+    .mem small { display: block; margin-top: 6px; color: var(--soft); font-size: 12px; }
+    .end { padding: 60px 48px; text-align: center; font: italic 500 30px/1.3 'Cormorant Garamond', serif; color: var(--gold); border-top: 1px solid var(--line); }
+    .empty { padding: 48px; color: var(--soft); text-align: center; }
+    @media (max-width: 600px) { .cover, .ch { padding: 28px 20px; } .cover { min-height: 440px; } .ch h2 { font-size: 36px; } }
+    @media print { body { background: #fff; } .bar { display: none; } .page { width: 100%; margin: 0; box-shadow: none; border-radius: 0; } .cover { min-height: 100vh; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  </style>
+</head>
+<body>
+  <div class="bar"><button onclick="print()">📔 {{ T.print }}</button><a href="/">WorldLive</a></div>
+  <main class="page">
+    <section class="cover" style="background-image:url('{% if chapters %}{{ chapters.0.hero }}{% endif %}')">
+      <div>
+        <div class="eyebrow">WorldLive · {{ j.code }}</div>
+        <h1>{{ T.t }}<i>.</i></h1>
+        <div class="names">{% for p in party %}{{ p.name }}{% if not forloop.last %}{% if forloop.revcounter == 2 %} & {% else %}, {% endif %}{% endif %}{% endfor %}</div>
+        <div class="stats"><div><b>{{ stats.cities }}</b><span>{{ T.cities }}</span></div><div><b>{{ stats.countries }}</b><span>{{ T.countries }}</span></div><div><b>{{ stats.km }}</b><span>{{ T.km }}</span></div><div><b>{{ stats.mems }}</b><span>{{ T.mems }}</span></div></div>
+      </div>
+    </section>
+    {% for c in chapters %}
+    <section class="ch">
+      <div class="eyebrow">{{ forloop.counter }} · {{ c.country }}{% if c.flight %} · {{ c.flight }}{% endif %}</div>
+      <h2>{{ c.name }}</h2>
+      {% if c.date %}<div class="meta">{{ c.date|date:"d.m.Y · H:i" }}</div>{% endif %}
+      {% if c.hero %}<img class="hero" src="{{ c.hero }}" alt="{{ c.name }}" loading="lazy">{% endif %}
+      {% if c.photos %}<div class="pair">{% for p in c.photos %}<img src="{{ p }}" alt="" loading="lazy">{% endfor %}</div>{% endif %}
+      <p class="places">{{ c.places|join:" · " }}</p>
+      {% if c.mems %}<div class="mems">{% for m in c.mems %}<div class="mem"><q>{{ m.text }}</q><small>{% if m.kind == "gift" %}🎁{% elif m.kind == "postcard" %}✉️{% elif m.kind == "photo" %}📸{% else %}✍️{% endif %} {{ m.author }}{% if m.place %} · {{ m.place }}{% endif %} · {{ m.created|date:"d.m.Y" }}</small></div>{% endfor %}</div>{% endif %}
+    </section>
+    {% empty %}
+    <div class="empty">{{ T.empty }}</div>
+    {% endfor %}
+    <div class="end">{{ T.end }}</div>
+  </main>
+</body>
+</html>

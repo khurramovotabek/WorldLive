@@ -1,0 +1,105 @@
+{% load static %}<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>WorldLive{% if invite %} — {{ invite.host }} sizni sayohatga taklif qildi{% endif %}</title>
+  <meta name="description" content="Bitta dunyo, birga sayohat: real joylar, musiqa, sovg‘alar va xotiralar — do‘stlar va yaqinlar bilan birga, real vaqtda.">
+  <meta property="og:title" content="{% if invite %}{{ invite.host }} sizni WorldLive sayohatiga taklif qildi ✈{% else %}WorldLive — birga dunyo bo‘ylab{% endif %}">
+  <meta property="og:description" content="Havolani oching, ismingizni kiriting va birga sayohatni boshlang. Kod: {{ invite.code|default:'' }}">
+  <meta property="og:type" content="website">
+  <meta name="description" content="WorldLive — One World. Two Hearts. Endless Journeys. An immersive virtual journey for two across the real planet.">
+  <meta name="theme-color" content="#03050b">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://thumb.wikimedia.org" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preload" href="{% static 'data/world.json' %}" as="fetch" crossorigin>
+  <link rel="preload" href="{% static 'img/earth/earth-day.jpg' %}" as="image" crossorigin="anonymous">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='28' fill='%230b1430' stroke='%23e9c98b' stroke-width='3'/><path d='M8 30c14 6 34 6 48 0M32 4c-10 12-10 44 0 56M32 4c10 12 10 44 0 56' stroke='%23e9c98b' stroke-width='2' fill='none'/></svg>">
+  {{ invite|json_script:"wl-invite" }}
+</head>
+<body>
+  <div id="loader"><div style="display:grid;justify-items:center"><div class="ring"></div><div class="loader-txt" data-i18n="loading">Dunyo yuklanmoqda</div></div></div>
+
+  <div id="globe" class="dim"></div>
+  <div class="vignette"></div>
+
+  <main id="ui">
+    <header id="topbar" class="topbar away">
+      <div class="logo glass pill" style="padding:6px 16px">World<span>Live</span></div>
+      <div class="couple glass pill">
+        <div class="avatar" id="avA">A<span class="dot on"></span></div>
+        <div class="avatar b" id="avB">B<span class="dot"></span></div>
+        <div class="couple-names" id="coupleNames"></div>
+      </div>
+      <div class="spacer"></div>
+      <div class="clocks glass pill" id="clocks"></div>
+      <button class="code-chip glass pill" id="codeChip" title="Share"><span class="lbl-txt" data-i18n="share">Kodni ulashing</span> <b id="codeTxt"></b></button>
+      <button class="icon-btn glass" id="passportBtn" aria-label="Passport" title="Passport"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="3.2"/><path d="M8.5 16.5h7"/></svg></button>
+      <div class="lang-switch glass pill"><button data-lang="uz">UZ</button><button data-lang="en">EN</button><button data-lang="ru">RU</button></div>
+    </header>
+
+    <aside id="dock" class="dock glass away">
+      <div class="dock-head">
+        <div class="eyebrow" data-i18n="destinations">Manzillar</div>
+        <h2 class="display" data-i18n="whereTogether">Birgalikda qayerga boramiz?</h2>
+        <div class="field search"><input id="search" data-i18n-ph="search" placeholder="Shahar yoki davlat…" autocomplete="off"></div>
+      </div>
+      <div class="dock-group" style="margin:4px 20px 6px" data-i18n="heroRoutes">Oltin yo‘nalishlar</div>
+      <div class="hero-strip" id="heroStrip"></div>
+      <div class="dock-list" id="dockList"></div>
+    </aside>
+
+    <section id="preview" class="preview glass dense away" aria-live="polite"></section>
+
+    <div id="hud" class="hud glass dense away">
+      <div class="cell"><b id="hudAlt">0 m</b><span data-i18n="altitude">Balandlik</span></div>
+      <div class="cell"><b id="hudSpd">0</b><span data-i18n="speed">Tezlik</span></div>
+      <div class="prog"><i id="hudProg"></i></div>
+      <div class="cell"><b id="hudRem">—</b><span data-i18n="remaining">Qoldi</span></div>
+    </div>
+
+    <div id="atmos" class="atmos glass pill away"></div>
+  </main>
+
+  <section id="scene" aria-label="City"></section>
+  <div id="cycleClock" class="cycle-clock glass pill hidden" title="1 min = 1 h"><i>🌙</i><b>21:00</b><span>1 min = 1 h</span></div>
+
+  <section id="intro">
+    <div class="intro-card glass">
+      <div class="eyebrow">Tashkent · 41.31° N 69.28° E</div>
+      <h1 class="brand">World<i>Live</i></h1>
+      <p class="slogan" data-i18n="slogan">Bitta dunyo. Ikki qalb. Cheksiz sayohatlar.</p>
+      <div class="party" id="party">
+        <div class="pm" data-i="0">
+          <label class="pm-ph" title="Surat (ixtiyoriy)"><input type="file" accept="image/jpeg,image/png,image/webp" hidden><span>+</span></label>
+          <div class="field"><label for="nameA" data-i18n="you">Sizning ismingiz</label><input id="nameA" maxlength="40" autocomplete="given-name" autofocus></div>
+          <div class="pm-g seg"><button type="button" data-g="m" class="on" aria-label="Yigit">♂</button><button type="button" data-g="f" aria-label="Qiz">♀</button></div>
+        </div>
+        <div class="pm" data-i="1">
+          <label class="pm-ph" title="Surat (ixtiyoriy)"><input type="file" accept="image/jpeg,image/png,image/webp" hidden><span>+</span></label>
+          <div class="field"><label for="nameB" data-i18n="partner">Hamrohingiz ismi</label><input id="nameB" maxlength="40" autocomplete="off"></div>
+          <div class="pm-g seg"><button type="button" data-g="m" aria-label="Yigit">♂</button><button type="button" data-g="f" class="on" aria-label="Qiz">♀</button></div>
+        </div>
+        <div class="party-more"><button type="button" class="linkish" id="addMate" data-i18n="addMate">+ Hamsafar qo‘shish</button><span class="faint" id="partyN"></span></div>
+        <label class="consent hidden" id="consent"><input type="checkbox" id="consentBox"> <span data-i18n="photoConsent">Suratlar faqat shu sayohat ichida (personaj, otkritka, film) ishlatilishiga roziman. Istalgan payt o‘chirish mumkin.</span></label>
+      </div>
+      <div class="intro-actions">
+        <button class="btn btn-gold" id="startBtn"><span data-i18n="start">Sayohatni boshlash</span> →</button>
+        <button class="linkish" id="joinToggle" data-i18n="joinToggle">Hamrohim kodi bilan qo‘shilish</button>
+        <div id="joinBox" class="hidden"><div class="join-row field"><input id="joinCode" maxlength="8" data-i18n-ph="codePh" placeholder="KOD"><button class="btn btn-ghost" id="joinBtn" data-i18n="join">Qo‘shilish</button></div></div>
+      </div>
+      <p class="privacy" data-i18n="privacy">Xizmatni yaxshilash uchun qurilma turi, IP manzil va ilova ichidagi qadamlar saqlanadi.</p>
+      <div class="intro-foot">
+        <div class="lang-switch"><button data-lang="uz">UZ</button><button data-lang="en">EN</button><button data-lang="ru">RU</button></div>
+        <span class="faint">Wikipedia · Wikimedia Commons · NASA</span>
+      </div>
+    </div>
+  </section>
+
+  <script src="{% static 'vendor/wl-vendor.js' %}"></script>
+  <script type="module" src="{% static 'js/main.js' %}"></script>
+</body>
+</html>
