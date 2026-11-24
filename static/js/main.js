@@ -239,7 +239,14 @@ async function enter(j, role, me) {
   WL.earth.focus(here, 1.9, 3200);
   toast(`${t("welcome")}, ${me}${partner ? " & " + partner : ""} — ${t("tashkentStart")}`);
   WL.music.setContext({ city: here, season: curSeason(here), tod: curTod(here), ambience: { wind: 0.12, city: 0.1 } });
-  WL.music.playSmart();
+  // every journey begins in Tashkent: the TV tower and Konsta — “Odamlar Ucha Olar”
+  const first = !(j.stamps || []).length;
+  const anthem = WL.music.songs.find((x) => /odamlar ucha olar/i.test(x.title));
+  if (first && anthem) WL.music.playTrack(anthem); else WL.music.playSmart();
+  if (first) setTimeout(() => {
+    const tk = byKey("tashkent"), ti = tk.attractions.findIndex((a) => a.id === "tashkent-tower");
+    if (!WL.scene.city && !WL.flying) openCity(tk, Math.max(0, ti));
+  }, 3600);
   startSync();
 }
 
@@ -247,8 +254,9 @@ async function enter(j, role, me) {
 function bindTopbar() {
   $("#codeChip").onclick = async () => {
     track("share"); const url = inviteUrl(WL.journey.code);
-    if (navigator.share && matchMedia("(pointer: coarse)").matches) return navigator.share({ title: "WorldLive", text: t("inviteMsg"), url }).catch(() => {});
-    try { await navigator.clipboard.writeText(url); toast(t("linkCopied")); } catch { toast(url); }
+    try { await navigator.clipboard.writeText(url); } catch {}
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(t("inviteMsg"))}`, "_blank", "noopener");
+    toast(t("linkCopied"));
   };
   $("#passportBtn").onclick = () => { track("passport"); passport(); };
   $$("#topbar .lang-switch button").forEach((b) => (b.onclick = () => setLang(b.dataset.lang)));
@@ -287,6 +295,8 @@ function buildDock() {
   $$("#dockList .dest").forEach((b) => (b.onclick = () => preview(byKey(b.dataset.k))));
 }
 $("#search").addEventListener("input", buildDock);
+$("#dockMin").onclick = () => { const m = !$("#dock").classList.contains("mini"); $("#dock").classList.toggle("mini", m); $("#dockMin").textContent = m ? "▢" : "–"; try { localStorage.setItem("wl-dock-mini", m ? "1" : "0"); } catch {} };
+try { if (localStorage.getItem("wl-dock-mini") === "1") { $("#dock").classList.add("mini"); $("#dockMin").textContent = "▢"; } } catch {}
 
 // ----------------------------------------------------------------------------- preview
 function preview(c, silent) {
@@ -464,7 +474,7 @@ function toggleTod() {
   const tods = ["auto", "cycle", "sunrise", "morning", "noon", "golden", "sunset", "evening", "night"];
   const el = h(`<div class="tod glass dense"><div class="eyebrow" style="margin-bottom:10px">${t("timeOfDay")}</div>
     <input type="range" min="0" max="${tods.length - 1}" step="1" value="${tods.indexOf(WL.tod)}"><div class="seg" style="margin-top:10px">${tods.map((k) => `<button data-k="${k}" class="${WL.tod === k ? "on" : ""}">${TOD_IC[k]} ${t(k === "auto" ? "realtime" : k === "cycle" ? "dayCycle" : k)}</button>`).join("")}</div></div>`);
-  const set = (k) => { if (k === "cycle" && WL.tod !== "cycle") WL.cycle0 = Date.now(); WL.tod = k; WL._cycTod = null; applyAtmos(); push({ tod: k, ...(k === "cycle" ? { cycle0: WL.cycle0 } : {}) }); track("tod", { city: (WL.scene.city || WL.earth.current)?.key, d: { tod: k } }); $$("button", el).forEach((b) => b.classList.toggle("on", b.dataset.k === k)); $("input", el).value = tods.indexOf(k); };
+  const set = (k) => { if (k === "cycle" && WL.tod !== "cycle") { WL.cycle0 = Date.now(); track("cycle"); } WL.tod = k; WL._cycTod = null; applyAtmos(); push({ tod: k, ...(k === "cycle" ? { cycle0: WL.cycle0 } : {}) }); track("tod", { city: (WL.scene.city || WL.earth.current)?.key, d: { tod: k } }); $$("button", el).forEach((b) => b.classList.toggle("on", b.dataset.k === k)); $("input", el).value = tods.indexOf(k); };
   $("input", el).oninput = (e) => set(tods[+e.target.value]);
   $$("button", el).forEach((b) => (b.onclick = () => set(b.dataset.k)));
   $("#ui").append(el);
@@ -488,6 +498,7 @@ function passport() {
     <div class="stamps">${stamps.length ? stamps.map((s) => stampSVG(s)).join("") : `<p class="faint">${t("empty")}</p>`}</div>
     ${songsBlock(j, stamps)}
     <div class="film-cta mt"><button class="btn btn-gold" data-film>🎬 ${t("filmMake")}</button><a class="btn btn-ghost" target="_blank" rel="noopener" href="/album/${esc(j.code)}?lang=${getLang()}">📔 ${t("album")}</a><span class="faint">${t("filmHint")}</span></div>
+    <p class="dev-credit">WorldLive · Developed by <a href="https://welicodev.uz" target="_blank" rel="noopener">welicodev.uz</a></p>
     <div class="eyebrow mt">${t("memories")}</div><div class="memories">${(j.memories || []).slice(0, 30).map(memHTML).join("") || `<p class="faint">${t("empty")}</p>`}</div>
     <div style="display:flex;justify-content:flex-end;margin-top:20px"><button class="btn btn-ghost" data-close>${t("close")}</button></div></div></div>`);
   wrap.onclick = (e) => {
@@ -498,6 +509,7 @@ function passport() {
       track("music", { d: { title: "passport playlist", src: "passport" } });
       return;
     }
+    if (e.target.closest("a[href^='/album/']")) track("album");
     if (e.target.closest("[data-film]")) { wrap.remove(); import("./film.js").then((m) => m.makeFilm(WL.world, WL.journey)); return; }
     if (e.target === wrap || e.target.closest("[data-close]")) wrap.remove();
   };
@@ -554,6 +566,8 @@ function startSync() {
       WL.journey = { ...prev, ...r };
       renderTop();
       if ((r.chat_last || 0) > (WL.chat?.last || 0)) WL.chat?.pull();
+      const jel = WL.scene._journalEl, cityMems = (WL.journey.memories || []).filter((m) => m.city === WL.scene.city?.key).length;
+      if (jel?.isConnected && cityMems !== WL.scene._journalN && !jel.querySelector("[data-text]")?.value) WL.scene._journal(jel);
       // follow the partner
       if (s.flight && s.flight.at > Date.now() - 20000 && !WL.flying && s.flight.at !== WL._lastFlight) {
         WL._lastFlight = s.flight.at;

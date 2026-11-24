@@ -27,6 +27,16 @@
     {% empty %}<p class="empty">Qurilma yo‘q</p>{% endfor %}
   </div>
   <div class="card glass">
+    <div class="card-h"><h2>Guruh · {{ party|length }} kishi</h2>{% if started %}<span class="badge">boshlangan</span>{% else %}<span class="badge">lobby</span>{% endif %}</div>
+    <ul class="split">{% for m in party %}<li><span>{% if m.photo %}<img src="{{ m.photo }}" alt="" style="width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px">{% endif %}{% if m.g == "f" %}♀{% else %}♂{% endif %} <b>{{ m.name }}</b>{% if m.host %} · tashkilotchi{% endif %}</span><b class="faint">{% if m.ready %}✓ tayyor{% else %}kutilmoqda{% endif %}</b></li>{% empty %}<li class="empty">—</li>{% endfor %}</ul>
+    <div class="card-h" style="margin-top:14px"><h2>Sovg‘alar</h2></div>
+    <ul class="split">{% for g in gifts %}<li><span>🎁 {{ g.from }} → {{ g.to|default:"—" }} · {{ g.item }}{% if g.msg %} — “{{ g.msg|truncatechars:60 }}”{% endif %}</span><b class="faint">{{ g.status }}{% if g.reaction %} {{ g.reaction }}{% endif %}</b></li>{% empty %}<li class="empty">—</li>{% endfor %}</ul>
+  </div>
+  <div class="card glass">
+    <div class="card-h"><h2>Chat</h2><span class="faint">{{ chat|length }}</span></div>
+    <ul class="mem" style="max-height:360px;overflow:auto">{% for m in chat %}<li><small>{{ m.created|date:"d.m H:i" }} · {{ m.author|default:"tizim" }}</small>{% if m.kind == "propose" %}✈ {{ m.data.city }} ga borishni taklif qildi{% elif m.kind == "system" %}✨ {{ m.data.name }} qo‘shildi{% else %}{{ m.text }}{% endif %}</li>{% empty %}<li class="empty">—</li>{% endfor %}</ul>
+  </div>
+  <div class="card glass">
     <div class="card-h"><h2>Xotiralar</h2></div>
     <ul class="mem">{% for m in memories %}<li><small>{{ m.created|date:"d.m H:i" }} · {{ m.author }} · {{ m.city }}{% if m.open_on %} · 💌 {{ m.open_on|date:"d.m.Y" }}{% endif %}</small>{{ m.text|truncatechars:160 }}</li>{% empty %}<li class="empty">—</li>{% endfor %}</ul>
     <div class="card-h" style="margin-top:14px"><h2>Ularning musiqasi</h2></div>

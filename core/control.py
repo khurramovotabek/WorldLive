@@ -40,6 +40,9 @@ KIND = {
     "3d": ("🧭", "3D shahar"), "leave": ("🚪", "Chiqdi"),
     "adhan": ("🕌", "Azonni tingladi"), "song_stamp": ("💿", "Qo‘shiq muhri bosdi"),
     "status_copy": ("💬", "Statusni nusxaladi"), "film": ("🎬", "“Bizning film”ni yaratdi"), "gift": ("🎁", "Sovg‘ani ochdi"), "gift_send": ("💝", "Sovg‘a yubordi"),
+    "create": ("🧭", "Sayohat yaratdi"), "plan": ("📖", "Kun rejasi qadamini tanladi"), "chat": ("💬", "Chatga yozdi"),
+    "propose": ("✈️", "Manzil taklif qildi"), "ready": ("✅", "Tayyorligini bildirdi"), "invite": ("📨", "Telegram orqali taklif yubordi"),
+    "album": ("📔", "Xotira albomini ochdi"), "tour": ("⏭️", "Keyingi joyga o‘tdi"), "zen": ("👁️", "Toza ko‘rinishni yoqdi"), "cycle": ("🔄", "Jonli kunni yoqdi"),
 }
 
 
@@ -158,6 +161,8 @@ def journey(request, code):
            "route": [{"name": city_name(s.city), "date": s.created, "flight": s.flight_no} for s in stamps],
            "places": [{"city": city_name(c), "place": PLACE.get(p, p), "n": n} for (c, p), n in visited.most_common(30)],
            "memories": j.memories.all()[:50], "tracks": j.tracks.all(),
+           "party": (j.state or {}).get("party") or [], "started": (j.state or {}).get("started"),
+           "chat": list(j.chat.order_by("-id")[:80])[::-1], "gifts": ((j.state or {}).get("gifts") or [])[-30:][::-1],
            "page": page, "rows": [_row(e) for e in page], "kind": kind or "", "kinds": KIND,
            "live": devices.filter(last_seen__gte=_active_since()).exists(), "nav": "couples"}
     return render(request, "control/journey.html", ctx)

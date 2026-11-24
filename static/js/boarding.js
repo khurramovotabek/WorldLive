@@ -48,9 +48,20 @@ function livery(hi) {
     x.save(); x.translate(pu(deg), py(lx)); x.transform(0, -1, -1, 0, 0, 0);   // the hull's u runs upward: mirror into reading order x.fillStyle = col; x.textBaseline = "middle";
     x.font = `${font} ${size}px 'Cormorant Garamond', Georgia, serif`; x.fillText(str, 0, 0); x.restore();
   };
-  const fs = (0.52 / LEN) * H;
+  const fs = (0.6 / LEN) * H;
+  // roundel: navy disc, champagne ring, “WL” monogram — the airline mark, ahead of the title
+  {
+    const cx = pu(40), cy = py(-2.15), R = (0.34 / LEN) * H;
+    x.save(); x.translate(cx, cy); x.transform(0, -1, -1, 0, 0, 0);
+    x.fillStyle = navy; x.beginPath(); x.arc(0, 0, R, 0, 6.283); x.fill();
+    x.strokeStyle = goldC; x.lineWidth = R * 0.12; x.beginPath(); x.arc(0, 0, R * 0.86, 0, 6.283); x.stroke();
+    x.fillStyle = goldC; x.textAlign = "center"; x.textBaseline = "middle"; x.font = `italic 600 ${R * 0.95}px 'Cormorant Garamond', Georgia, serif`; x.fillText("WL", 0, R * 0.04);
+    x.restore();
+  }
   text("World", -1.6, 40, fs, navy, "600"); x.save(); x.font = `italic 600 ${fs}px 'Cormorant Garamond', Georgia, serif`; const wW = x.measureText("World").width; x.restore();
   text("Live", -1.6 + (wW / H) * LEN * 1.02, 40, fs, "#b8914a", "italic 600");
+  // pinstripe under the title + tagline
+  x.fillStyle = goldC; x.fillRect(pu(25), py(2.9), Math.max(2, W / 700), py(-2.5) - py(2.9));
   text("UK-WL787", -5.6, 22, fs * 0.26, "rgba(19,32,58,.75)", "600");
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
   return tex;

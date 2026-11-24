@@ -23,6 +23,7 @@ export class CityScene {
       <div class="scene-top">
         <button class="icon-btn glass" data-back aria-label="${t("backGlobe")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></svg></button>
         <button class="secret-spark" data-secret hidden aria-label="🎁"><span>🎁</span></button>
+        <button class="zen-btn glass" data-zen title="${t("cleanView")}" aria-label="${t("cleanView")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
         <button class="plan-btn glass pill" data-plan>📖 <span>${t("dayPlan")}</span></button>
         <button class="fly-btn glass pill" data-fly>✈ <span>${t("flyElsewhere")}</span></button>
         <div class="scene-title"><div class="eyebrow" data-country></div><div class="display" data-city></div><div class="level-tag glass pill" data-level></div></div>
@@ -47,6 +48,10 @@ export class CityScene {
     $("[data-fly]", root).onclick = () => this.onBack({ pick: true });
     $("[data-secret]", root).onclick = () => emit("gift:secret", this.city);
     $("[data-plan]", root).onclick = () => this.plan();
+    // clean view: hide every floating panel to enjoy the place; tap anywhere (or the eye) to bring them back
+    const zen = (v) => { document.body.classList.toggle("zen", v); if (v) { toast(t("cleanHint")); track("zen", { city: this.city?.key }); } };
+    $("[data-zen]", root).onclick = (e) => { e.stopPropagation(); zen(!document.body.classList.contains("zen")); };
+    root.addEventListener("click", (e) => { if (document.body.classList.contains("zen") && !e.target.closest("[data-zen]")) zen(false); });
   }
 
   /** Makkah · Madinah: today's real prayer times in local time, the next one counting down */
@@ -127,7 +132,7 @@ export class CityScene {
     const r = this.root, DURS = [15, 30, 45, 60];
     this.tourDur = +(localStorage.getItem("wl-tour") || 45); this.tourOn = localStorage.getItem("wl-tour-on") !== "0";
     const step = (d) => { if (!this.city) return; const n = this.city.attractions.length; this.show((this.idx + d + n) % n); emit("scene:place", this.idx); };
-    $("[data-tn]", r).onclick = () => step(1);
+    $("[data-tn]", r).onclick = () => { step(1); track("tour", { city: this.city?.key, d: { dur: this.tourDur } }); };
     $("[data-snext]", r).onclick = () => step(1);
     $("[data-sprev]", r).onclick = () => step(-1);
     $("[data-tp]", r).onclick = () => { this.tourOn = !this.tourOn; try { localStorage.setItem("wl-tour-on", this.tourOn ? "1" : "0"); } catch {} this._tourT0 = performance.now() - this._tourEl; this._tourPaint(); };
@@ -244,10 +249,12 @@ export class CityScene {
   _card() {
     const a = this.place, c = this.city, card = $("[data-card]", this.root);
     if (!a) return;
+    if (this._miniInit === undefined) { this._miniInit = true; try { card.classList.toggle("mini", localStorage.getItem("wl-card-mini") === "1" && innerWidth > 680); } catch {} }
     if (this._cardOpen === undefined) this._cardOpen = false;
     const lang = getLang(), text = a.extract[lang] || a.extract.en || "";
     card.innerHTML = `
       <button class="pc-grip" data-grip aria-label="${t("more")}"><i></i></button>
+      <button class="pc-min" data-min aria-label="${t("minimize")}" title="${t("minimize")}">${card.classList.contains("mini") ? "▢" : "–"}</button>
       <div class="eyebrow">${CAT_ICON[a.category] || "📍"} ${esc(L(c.name))} · ${a.lat.toFixed(4)}°, ${a.lng.toFixed(4)}°</div>
       <blockquote class="pc-quote" data-pq>${esc(placeLine(a.id) || "")}</blockquote>
       <h3 class="display">${esc(a.names[lang] || a.names.en)}</h3>
@@ -267,6 +274,7 @@ export class CityScene {
     $("[data-photo]", card).onclick = () => this.studio();
     $("[data-note]", card).onclick = () => this.setTab("journal");
     $("[data-gift]", card).onclick = () => emit("gift:compose", { city: this.city });
+    $("[data-min]", card).onclick = (e) => { e.stopPropagation(); const m = !card.classList.contains("mini"); card.classList.toggle("mini", m); e.currentTarget.textContent = m ? "▢" : "–"; try { localStorage.setItem("wl-card-mini", m ? "1" : "0"); } catch {} };
     // mobile: a bottom sheet — collapsed shows title + aphorism, a tap / swipe up opens the full story
     card.classList.toggle("open", !!this._cardOpen);
     const toggle = (v) => { this._cardOpen = v ?? !this._cardOpen; card.classList.toggle("open", this._cardOpen); if (!this._cardOpen) card.scrollTop = 0; };
@@ -301,21 +309,27 @@ export class CityScene {
         <button class="btn btn-gold" data-save>${t("save")}</button>
       </div>
       <div class="memories">${mems.map((m) => memHTML(m)).join("") || `<p class="faint">${t("empty")}</p>`}</div>`;
-    $("[data-save]", el).onclick = async () => {
-      const text = $("[data-text]", el).value.trim(); if (!text) return;
+    const btn = $("[data-save]", el);
+    btn.onclick = async () => {
+      const ta = $("[data-text]", el), text = ta.value.trim();
+      if (!text) { ta.focus(); return toast(t("writeFirst")); }
+      if (btn.disabled) return;
+      btn.disabled = true; btn.textContent = "…";
       const date = $("[data-date]", el).value;
-      await this._saveMemory(date ? "postcard" : "note", text, this.place ? L(this.place.names) : "", date || null);
-      this._journal(el);
+      const ok = await this._saveMemory(date ? "postcard" : "note", text, this.place ? L(this.place.names) : "", date || null);
+      if (ok) this._journal(el); else { btn.disabled = false; btn.textContent = t("save"); }
     };
+    this._journalEl = el; this._journalN = mems.length;
   }
   async _saveMemory(kind, text, place, open_on = null) {
     track(kind === "postcard" ? "postcard" : kind === "photo" ? "photo" : "memory", { city: this.city?.key, place: this.place?.id, d: { len: text.length } });
     const J = this.journey();
     try {
       const m = await api(`journey/${J.code}/memory`, { body: { kind, text, city: this.city.key, place, author: window.WL.me, open_on } });
-      J.memories = [m, ...(J.memories || [])];
-      toast(t("saved"));
-    } catch (e) { toast(e.message); }
+      J.memories = [m, ...(J.memories || []).filter((x) => x.id !== m.id)];
+      toast("💛 " + t("saved"));
+      return true;
+    } catch (e) { toast(t("saveFailed")); return false; }
   }
 
   // ------------------------------------------------------------ Memory Studio

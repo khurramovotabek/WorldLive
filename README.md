@@ -7,7 +7,7 @@ gifts & secret surprises, a shared chat, a digital passport, “Our film” and 
 
 ## Highlights
 - **Travel together, for real** — every journey has a unique 8-letter ID and an invite link `/j/<ID>`
-  (share on Telegram / WhatsApp). Each traveller enters their own name, gender and optional photo
+  (shared on Telegram via a t.me/share link with a rich preview). Each traveller enters their own name, gender and optional photo
   (with consent); everyone taps *I’m ready* and the trip starts on all devices at once. Up to 8 people;
   any number of devices can follow the same journey.
 - **Live chat** with one-tap destination proposals (“Shall we go to Paris? ✈ Let’s fly”).

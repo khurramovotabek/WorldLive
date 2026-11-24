@@ -6,6 +6,7 @@
 // • any number of devices can follow the same journey with the code
 import { $, $$, api, esc, flag, h, store, toast } from "./core.js";
 import { L, t } from "./i18n.js";
+import { track } from "./track.js";
 
 export const inviteUrl = (code) => `${location.origin}/j/${code}`;
 export const readInvite = () => { try { return JSON.parse(document.getElementById("wl-invite")?.textContent || "null"); } catch { return null; } };
@@ -21,11 +22,9 @@ export function lobby({ code, mid, onStart }) {
     <div class="invite-box">
       <div class="invite-code"><span>${t("tripId")}</span><b>${esc(code)}</b></div>
       <div class="invite-url"><input readonly value="${esc(url)}" aria-label="link"><button class="btn btn-ghost" data-copy>${t("copyLink")}</button></div>
-      <div class="invite-share">
-        <a class="btn tg" target="_blank" rel="noopener" href="https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(t("inviteMsg"))}">✈ Telegram</a>
-        <a class="btn wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(t("inviteMsg") + " " + url)}">WhatsApp</a>
-        ${navigator.share ? `<button class="btn btn-ghost" data-share>${t("shareMore")}</button>` : ""}
-      </div>
+      <a class="btn tg" target="_blank" rel="noopener" href="https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(t("inviteMsg"))}">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M21.9 4.3 18.7 19.4c-.2 1-.9 1.3-1.8.8l-4.9-3.6-2.4 2.3c-.3.3-.5.5-1 .5l.4-5 9.1-8.2c.4-.4-.1-.6-.6-.2L6.2 13 1.4 11.5c-1-.3-1-1 .2-1.5L20.5 2.8c.9-.3 1.6.2 1.4 1.5z"/></svg>
+        ${t("inviteTelegram")}</a>
     </div>
     <div class="eyebrow mt">${t("lobbyWho")}</div>
     <ul class="lobby-list" data-list></ul>
@@ -33,6 +32,7 @@ export function lobby({ code, mid, onStart }) {
   </div></div>`);
   document.body.append(el);
   requestAnimationFrame(() => el.classList.add("on"));
+  $(".btn.tg", el).addEventListener("click", () => track("invite", { d: { code } }));
   $("[data-copy]", el).onclick = async () => { try { await navigator.clipboard.writeText(url); toast(t("copied")); } catch { $("input", el).select(); } };
   $("[data-share]", el)?.addEventListener("click", () => navigator.share({ title: "WorldLive", text: t("inviteMsg"), url }).catch(() => {}));
   let ready = false, done = false, timer;
@@ -45,7 +45,7 @@ export function lobby({ code, mid, onStart }) {
     if (started && !done) { done = true; clearInterval(timer); el.classList.remove("on"); setTimeout(() => el.remove(), 400); onStart(); }
   };
   const poll = async () => { try { const j = await api(`journey/${code}`); ready = !!j.state.party?.find((m) => m.id === mid)?.ready; paint(j.state.party, j.state.started); } catch {} };
-  $("[data-ready]", el).onclick = async () => { ready = !ready; const r = await api(`journey/${code}/ready`, { body: { mid, ready } }); paint(r.party, r.started); };
+  $("[data-ready]", el).onclick = async () => { ready = !ready; track("ready", { d: { code, ready } }); const r = await api(`journey/${code}/ready`, { body: { mid, ready } }); paint(r.party, r.started); };
   $("[data-force]", el).onclick = async () => { const r = await api(`journey/${code}/ready`, { body: { mid, ready: true, force: true } }); paint(r.party, r.started); };
   poll(); timer = setInterval(poll, 2000);
 }
@@ -96,7 +96,10 @@ export class Chat {
   }
   scroll() { const l = $("[data-list]", this.panel); l.scrollTop = l.scrollHeight; }
   async send(body) {
-    try { const m = await api(`journey/${this.journey().code}/chat`, { body: { ...body, author: this.me, mid: this.mid } }); this.add([m]); }
+    try {
+      const m = await api(`journey/${this.journey().code}/chat`, { body: { ...body, author: this.me, mid: this.mid } }); this.add([m]);
+      track(body.kind === "propose" ? "propose" : "chat", { city: body.data?.city, d: { len: (body.text || "").length } });
+    }
     catch { toast("✕"); }
   }
   async pull() {

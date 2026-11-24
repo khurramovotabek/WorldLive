@@ -8,6 +8,11 @@
   <meta property="og:title" content="{% if invite %}{{ invite.host }} sizni WorldLive sayohatiga taklif qildi ✈{% else %}WorldLive — birga dunyo bo‘ylab{% endif %}">
   <meta property="og:description" content="Havolani oching, ismingizni kiriting va birga sayohatni boshlang. Kod: {{ invite.code|default:'' }}">
   <meta property="og:type" content="website">
+  <meta property="og:site_name" content="WorldLive">
+  <meta property="og:url" content="{{ request.build_absolute_uri }}">
+  <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'img/og.jpg' %}">
+  <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
   <meta name="description" content="WorldLive — One World. Two Hearts. Endless Journeys. An immersive virtual journey for two across the real planet.">
   <meta name="theme-color" content="#03050b">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -42,6 +47,7 @@
     </header>
 
     <aside id="dock" class="dock glass away">
+      <button class="dock-min" id="dockMin" aria-label="–" title="–">–</button>
       <div class="dock-head">
         <div class="eyebrow" data-i18n="destinations">Manzillar</div>
         <h2 class="display" data-i18n="whereTogether">Birgalikda qayerga boramiz?</h2>
@@ -95,6 +101,8 @@
       <div class="intro-foot">
         <div class="lang-switch"><button data-lang="uz">UZ</button><button data-lang="en">EN</button><button data-lang="ru">RU</button></div>
         <span class="faint">Wikipedia · Wikimedia Commons · NASA</span>
+      </div>
+      <div class="dev-credit">Developed by <a href="https://welicodev.uz" target="_blank" rel="noopener">welicodev.uz</a>
       </div>
     </div>
   </section>
