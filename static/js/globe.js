@@ -98,7 +98,7 @@ export class Earth {
       waitForGlobeReady: true, animateIn: true,
     }));
     g.renderer().setPixelRatio(QUALITY.dpr);
-    g.backgroundImageUrl(IMG + "night-sky.jpg")
+    g.backgroundImageUrl(IMG + "night-sky-md.jpg")
       .showAtmosphere(true).atmosphereColor("#7fb2ff").atmosphereAltitude(0.21)
       .width(innerWidth).height(innerHeight);
     addEventListener("resize", () => g.width(innerWidth).height(innerHeight));
@@ -111,9 +111,19 @@ export class Earth {
 
     const tl = new THREE.TextureLoader();
     const tex = (f) => { const t = tl.load(IMG + f); t.anisotropy = 8; return t; };
+    // progressive: a ~100 KB globe appears at once, the sharp textures stream in after the app has booted
+    // (phones get 2K, larger screens 4K) — slow connections are never blocked behind 5 MB of images
+    const big = !QUALITY.small && QUALITY.tier === 2;
+    const prog = (f, fullOnPhone = null) => {
+      const [b, ext] = [f.slice(0, f.lastIndexOf(".")), f.slice(f.lastIndexOf("."))];
+      const u = { value: tex(`${b}-lo${ext}`) };
+      const hi = big ? f : fullOnPhone ?? `${b}-md${ext}`;
+      setTimeout(() => tl.load(IMG + hi, (t) => { t.anisotropy = 8; t.colorSpace = u.value.colorSpace; const old = u.value; u.value = t; old.dispose(); }), 3500);
+      return u;
+    };
     this.mat = new THREE.ShaderMaterial({
-      uniforms: { dayTex: { value: tex("earth-day.jpg") }, nightTex: { value: tex("earth-night.jpg") },
-        waterTex: { value: tex("earth-water.png") }, sunDir: { value: new THREE.Vector3(1, 0, 0) }, nightBoost: { value: 1.0 } },
+      uniforms: { dayTex: prog("earth-day.jpg"), nightTex: prog("earth-night.jpg"),
+        waterTex: prog("earth-water.png"), sunDir: { value: new THREE.Vector3(1, 0, 0) }, nightBoost: { value: 1.0 } },
       vertexShader: earthShader.vertexShader, fragmentShader: earthShader.fragmentShader,
     });
     g.globeMaterial(this.mat);
@@ -121,7 +131,7 @@ export class Earth {
     // clouds
     this.clouds = new THREE.Mesh(
       new THREE.SphereGeometry(g.getGlobeRadius() * 1.008, 72, 48),
-      new THREE.ShaderMaterial({ uniforms: { map: { value: tex("clouds.webp") }, sunDir: this.mat.uniforms.sunDir, opacity: { value: 0.75 } },
+      new THREE.ShaderMaterial({ uniforms: { map: prog("clouds.webp", "clouds.webp"), sunDir: this.mat.uniforms.sunDir, opacity: { value: 0.75 } },
         vertexShader: cloudShader.vertexShader, fragmentShader: cloudShader.fragmentShader, transparent: true, depthWrite: false })
     );
     this.clouds.rotation.y = -Math.PI / 2; // align texture with globe.gl's uv orientation
