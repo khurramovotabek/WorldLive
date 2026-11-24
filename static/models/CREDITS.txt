@@ -1,0 +1,9 @@
+WorldLive — 3D character assets (used only inside the boarding / arrival scene)
+
+him.glb   Ready Player Me sample avatar, as distributed with the three.js examples (examples/models/gltf/readyplayer.me.glb).
+her.glb   "Michelle" character by Mixamo (Adobe), as distributed with the three.js examples (examples/models/gltf/Michelle.glb).
+anim.glb  "Walk", "Idle" and "TPose" clips by Mixamo (Adobe), taken from the three.js examples (examples/models/gltf/Soldier.glb); meshes removed.
+
+Optimised for the web (1024px WebP textures, meshopt geometry, rotation-only clips) with glTF-Transform.
+Mixamo content is used under Adobe's Mixamo terms; Ready Player Me content under Ready Player Me's terms.
+Do not redistribute these files as standalone assets.
