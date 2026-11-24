@@ -396,9 +396,10 @@ function dressUp(model, girl, look = 0) {
   if (!girl && bones.Spine2) shirtFront(model, bones);
   if (girl && bones.Hips) {
     // a soft white gown from the waist to the ankles (A-line, room for a stride), swaying with the hips
-    const prof = [[0.135, 0.06], [0.155, 0], [0.205, -0.18], [0.27, -0.42], [0.33, -0.66], [0.375, -0.84], [0.38, -0.865], [0.37, -0.875]].map(([r, y]) => new THREE.Vector2(r, y));
+    const prof = [[0.135, 0.06], [0.15, 0], [0.172, -0.18], [0.215, -0.42], [0.29, -0.66], [0.35, -0.84], [0.355, -0.865], [0.345, -0.875]].map(([r, y]) => new THREE.Vector2(r, y));
     const skirt = new THREE.Mesh(new THREE.LatheGeometry(prof, 40), new THREE.MeshPhysicalMaterial({ color: DRESSES[look % DRESSES.length], roughness: 0.55, sheen: 1, sheenColor: new THREE.Color(0xffffff), sheenRoughness: 0.5, side: THREE.DoubleSide }));
     skirt.castShadow = true; skirt.name = "dress";
+    skirt.userData.base = skirt.geometry.attributes.position.array.slice();
     const hip = bones.Hips, ws = hip.getWorldScale(new THREE.Vector3());
     skirt.scale.set(1 / ws.x, 1 / ws.y, 1.1 / ws.z);   // deeper front-to-back: a full stride stays inside the gown
     model.updateMatrixWorld(true);
@@ -475,11 +476,14 @@ function realPerson(gltf, clips, height, name, girl, rest = {}, assets = null, l
   };
   // standing still: a relaxed, upright stance built from this body's own rest pose with the arms let down
   // (the source "Idle" is a soldier's ready stance — bent knees, hands forward — which looked wrong for a traveller)
+  // the walk is retargeted from the untouched rest pose first — only then are the arms let down for the stance
+  const walkClip = clipFor("Walk"), restQ = new Map(); model.traverse((o) => o.isBone && restQ.set(o, o.quaternion.clone()));
   root.userData = { bones: rig, girl, h: height };
   relaxArms(root, 1); relaxArms(root, 1);
   const stand = new THREE.AnimationClip("Stand", 1, []);
   model.traverse((o) => { if (o.isBone) { const q = o.quaternion.toArray(); stand.tracks.push(new THREE.QuaternionKeyframeTrack(`${o.name}.quaternion`, [0, 1], [...q, ...q])); } });
-  const walk = mixer.clipAction(clipFor("Walk")), idle = mixer.clipAction(stand);
+  restQ.forEach((q, o) => o.quaternion.copy(q));
+  const walk = mixer.clipAction(walkClip), idle = mixer.clipAction(stand);
   walk.play(); idle.play(); idle.setEffectiveWeight(0);
   walk.time = (girl ? 0.45 : 0) + look * 0.13; // out of step, like real people
   if (name) { const tag = nameTag(name, girl); tag.position.y = height + 0.28; root.add(tag); }
@@ -523,6 +527,41 @@ function animate(p, walking, dt, T) {
   u.walk.setEffectiveWeight(u.w); u.idle.setEffectiveWeight(1 - u.w);
   u.mixer.update(dt);
   relaxArms(p);
+  if (u.girl) flowDress(p, dt);
+}
+/** cloth-like gown: each frame the legs push the fabric out where they would poke through, the hem lags and
+ *  sways a little with the stride — the dress moves with her instead of being a rigid cone */
+const _k = new THREE.Vector3();
+function flowDress(p, dt) {
+  const u = p.userData, B = u.bones;
+  const sk = u._skirt ||= (() => { let f = null; p.traverse((o) => { if (o.name === "dress") f = o; }); return f; })();
+  if (!sk || !sk.userData.base || !B.LeftUpLeg) return;
+  p.updateMatrixWorld(true);
+  const legs = ["Left", "Right"].map((s) => [B[s + "UpLeg"], B[s + "Leg"], B[s + "Foot"]].map((b) => sk.worldToLocal(b.getWorldPosition(_k.clone()))));
+  const pos = sk.geometry.attributes.position, base = sk.userData.base, arr = pos.array;
+  const at = (L, y) => { // the leg's horizontal position at height y (hip → knee → ankle)
+    const [H, K, A] = L;
+    if (y >= H.y) return H;
+    if (y >= K.y) { const t = (H.y - y) / Math.max(1e-4, H.y - K.y); return _k.lerpVectors(H, K, t).clone(); }
+    if (y >= A.y) { const t = (K.y - y) / Math.max(1e-4, K.y - A.y); return _k.lerpVectors(K, A, t).clone(); }
+    return A;
+  };
+  const sway = (u._sw = (u._sw || 0) + dt * 6.5);
+  for (let i = 0; i < arr.length; i += 3) {
+    const bx = base[i], by = base[i + 1], bz = base[i + 2], r = Math.hypot(bx, bz);
+    if (r < 1e-4 || by > -0.05) { arr[i] = bx; arr[i + 1] = by; arr[i + 2] = bz; continue; }
+    const dx = bx / r, dz = bz / r;
+    let R = r;
+    for (const L of legs) {
+      const q = at(L, by), proj = q.x * dx + q.z * dz, lat = Math.abs(q.x * dz - q.z * dx);
+      const need = proj + 0.085;   // leg radius + a little air between fabric and leg
+      if (need > R * 0.82) { const w = Math.max(0, 1 - lat / 0.16); R = Math.max(R, r + (need - r * 0.82) * w * 1.15); }
+    }
+    const depth = Math.min(1, -by / 0.85), wob = Math.sin(sway + Math.atan2(dx, dz) * 2) * 0.012 * depth * u.w;
+    arr[i] = dx * (R + wob); arr[i + 1] = by; arr[i + 2] = dz * (R + wob);
+  }
+  pos.needsUpdate = true;
+  sk.geometry.computeVertexNormals();
 }
 /** a natural arm: the forearm follows the upper arm's swing with a soft ~15° bend, the hand stays by the thigh
  *  (the source clip's elbows are flexed for a different rig, which read as stiff, raised forearms) */
@@ -557,7 +596,7 @@ function relaxArms(p, weight = 1) {
     fore.updateMatrixWorld(true);
   }
 }
-export { relaxArms };
+export { relaxArms, flowDress };
 
 // ------------------------------------------------------------------ the airport around the plane
 function airport(scene, tod) {
