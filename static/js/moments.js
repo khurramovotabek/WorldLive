@@ -27,6 +27,8 @@ function aim(bone, child, dir, w = 1) {
 }
 /** seated: thighs forward, shins down (relative to the person's facing) */
 function sit(p, spread = 0.12) {
+  // seated: the ankle-length gown would cut through the lap — let it fall to the knees instead
+  if (!p.userData._seated) { p.userData._seated = true; p.traverse((o) => { if (o.name === "dress") { o.scale.y *= 0.5; o.scale.x *= 1.05; } }); }
   const B = p.userData.bones, f = V(0, 0, 1).applyQuaternion(p.quaternion), r = V(1, 0, 0).applyQuaternion(p.quaternion);
   for (const [s, k] of [["Left", 1], ["Right", -1]]) {
     aim(B[s + "UpLeg"], B[s + "Leg"], f.clone().addScaledVector(r, k * spread).add(V(0, 0.05, 0)));

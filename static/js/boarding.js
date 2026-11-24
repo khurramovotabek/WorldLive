@@ -473,7 +473,13 @@ function realPerson(gltf, clips, height, name, girl, rest = {}, assets = null, l
     // both rigs: a world-space bake (rest-pose aware), so arms swing low and natural instead of flailing
     return (assets.baked[(girl ? "f:" : "m:") + nm] ||= bakeRetarget(model, assets.src, c)); // bone names are identical across clones
   };
-  const walk = mixer.clipAction(clipFor("Walk")), idle = mixer.clipAction(clipFor("Idle"));
+  // standing still: a relaxed, upright stance built from this body's own rest pose with the arms let down
+  // (the source "Idle" is a soldier's ready stance — bent knees, hands forward — which looked wrong for a traveller)
+  root.userData = { bones: rig, girl, h: height };
+  relaxArms(root, 1); relaxArms(root, 1);
+  const stand = new THREE.AnimationClip("Stand", 1, []);
+  model.traverse((o) => { if (o.isBone) { const q = o.quaternion.toArray(); stand.tracks.push(new THREE.QuaternionKeyframeTrack(`${o.name}.quaternion`, [0, 1], [...q, ...q])); } });
+  const walk = mixer.clipAction(clipFor("Walk")), idle = mixer.clipAction(stand);
   walk.play(); idle.play(); idle.setEffectiveWeight(0);
   walk.time = (girl ? 0.45 : 0) + look * 0.13; // out of step, like real people
   if (name) { const tag = nameTag(name, girl); tag.position.y = height + 0.28; root.add(tag); }
@@ -820,4 +826,4 @@ async function show(mode, { city, a = "", b = "", tod = "golden", party = null }
 }
 
 // shared with the 3D moments (moments.js)
-export { loadPeople, reach, realPerson };
+export { loadPeople, reach, realPerson, holdHands };
