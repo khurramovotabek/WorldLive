@@ -150,6 +150,7 @@ export class Earth {
       this.clouds.rotation.y += dt * 0.004;
       this._sun();
       this.flight?.step(now);
+      if (now - (this._dc || 0) > 180) { this._dc = now; this._declutter(); }
     }
     requestAnimationFrame(this._tick);
   }
@@ -176,10 +177,15 @@ export class Earth {
         return new THREE.LineSegments(geom, new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false }));
       };
       this.g.scene().add(mk(B, 0xffffff, 0.13), mk(A, 0xe9c98b, 0.55));
+      // a tap on the globe picks the city nearest to the finger (not just the country's first city):
+      // Cappadocia and Istanbul are both in Türkiye
       this.g.onGlobeClick(({ lat, lng }) => {
+        const alt = this.g.pointOfView().altitude, reach = Math.max(350, Math.min(1500, alt * 520));
+        const near = this.cities.map((c) => [c, distanceKm({ lat, lng }, c)]).sort((a, b) => a[1] - b[1])[0];
+        if (near && near[1] < reach) return this.onPick(near[0]);
         const hit = this.countryAt(lat, lng);
-        const c = hit && this.cities.find((x) => x.country === hit.iso);
-        if (c) this.onPick(c);
+        const inC = hit && this.cities.filter((x) => x.country === hit.iso).map((c) => [c, distanceKm({ lat, lng }, c)]).sort((a, b) => a[1] - b[1])[0];
+        if (inC) this.onPick(inC[0]);
       });
     } catch (e) { console.warn("[WorldLive] borders", e); }
   }
@@ -213,6 +219,20 @@ export class Earth {
       .ringLat((d) => d.lat).ringLng((d) => d.lng)
       .ringColor(() => (t) => `rgba(233,201,139,${1 - t})`)
       .ringMaxRadius(3.2).ringPropagationSpeed(1.4).ringRepeatPeriod(2200);
+  }
+  _declutter() {
+    const heroes = new Set(this.world.hero), sel = this.selected?.key;
+    const rank = (c) => (c.key === sel ? 0 : c.key === this.current?.key ? 1 : heroes.has(c.key) ? 2 : 3);
+    const taken = [];
+    [...this.cities].sort((a, b) => rank(a) - rank(b)).forEach((c) => {
+      const el = c._el; if (!el || !el.isConnected || el.classList.contains("far")) return;
+      const lb = el.firstElementChild; if (!lb) return;
+      el.classList.remove("tuck");
+      const r = lb.getBoundingClientRect();
+      if (!r.width) return;
+      const hit = taken.some((q) => r.left < q.right + 4 && r.right > q.left - 4 && r.top < q.bottom + 3 && r.bottom > q.top - 3);
+      if (hit) el.classList.add("tuck"); else taken.push(r);
+    });
   }
   relabel() { this.cities.forEach((d) => { const s = d._el?.querySelector(".lbl span"); if (s) s.textContent = L(d.name); }); }
 

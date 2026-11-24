@@ -418,6 +418,7 @@ try { if (localStorage.getItem("wl-dock-mini") === "1") { $("#dock").classList.a
 
 // ----------------------------------------------------------------------------- preview
 function preview(c, silent) {
+  WL.earth.selected = c;
   if (!WL.journey || WL.flying) return;
   WL.previewCity = c;
   if (!silent) track("preview", { city: c.key });

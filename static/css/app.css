@@ -1047,3 +1047,9 @@ html, body { overscroll-behavior: none; }
   body.zen #scene .scene-top > .fly-btn, body.zen #scene .scene-top > .more-btn { opacity: .6 !important; pointer-events: auto !important; }
 }
 .moment .m-note .m-credit { font-size: 10.5px; opacity: .6; letter-spacing: .02em; }
+/* crowded regions: a label that would cover a more important one folds to its pin (zoom in to read it) */
+.marker.tuck .lbl { opacity: 0; transform: scale(.85); pointer-events: none; }
+.marker .lbl { transition: opacity .25s, transform .25s; }
+.marker .pin { position: relative; }
+.marker .pin::after { content: ""; position: absolute; inset: -14px; border-radius: 50%; }   /* a finger-sized tap target */
+@media (max-width: 860px) { .preview p { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; } }
