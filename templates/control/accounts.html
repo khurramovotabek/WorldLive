@@ -1,0 +1,26 @@
+{% extends "control/base.html" %}
+{% block title %}Akkauntlar{% endblock %}
+{% block body %}
+<section class="hero">
+  <div><div class="eyebrow">Sayohatchilar</div><h1><i>{{ stats.all }}</i> ta akkaunt</h1></div>
+  <form class="search glass" method="get"><input name="q" value="{{ q }}" placeholder="@username, ism yoki sayohat kodi"><button>Qidirish</button></form>
+</section>
+<section class="kpis">
+  <div class="kpi glass"><span>Jami</span><b>{{ stats.all }}</b><small>@username</small></div>
+  <div class="kpi glass"><span>Bugun faol</span><b>{{ stats.today }}</b><small>kirgan</small></div>
+  <div class="kpi glass"><span>Yangi</span><b>{{ stats.new7 }}</b><small>oxirgi 7 kun</small></div>
+</section>
+<section class="card glass">
+  <div class="table-wrap"><table class="tbl">
+    <thead><tr><th>Sayohatchi</th><th>Qurilmalar</th><th>Sayohatlar</th><th class="num">Shtamplar</th><th>Ro‘yxatdan</th><th>Oxirgi</th></tr></thead>
+    <tbody>{% for r in rows %}<tr>
+      <td class="nowrap">{% if r.online %}<span class="pulse"></span> {% endif %}{% if r.a.g == "f" %}♀{% else %}♂{% endif %} <b>{{ r.a.name }}</b> <small class="faint">@{{ r.a.username }}</small></td>
+      <td>{% for k in r.kinds %}{% if k == "mobile" %}📱{% elif k == "tablet" %}📟{% else %}💻{% endif %}{% empty %}—{% endfor %}</td>
+      <td>{% for j in r.trips %}<a class="badge" href="/control/couple/{{ j.code }}">{{ j.code }}</a> {% empty %}—{% endfor %}{% if r.n > 6 %}<small class="faint">+{{ r.n|add:"-6" }}</small>{% endif %}</td>
+      <td class="num">{{ r.stamps }}</td>
+      <td class="faint nowrap">{{ r.a.created|date:"d.m.Y" }}</td>
+      <td class="faint nowrap">{{ r.a.seen|date:"d.m H:i" }}</td></tr>
+    {% empty %}<tr><td colspan="6" class="empty">Hali akkaunt yo‘q</td></tr>{% endfor %}</tbody></table></div>
+  {% include "control/_pager.html" %}
+</section>
+{% endblock %}

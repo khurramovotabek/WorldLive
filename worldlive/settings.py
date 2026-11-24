@@ -41,12 +41,14 @@ if not DEBUG:
 # Application definition
 
 INSTALLED_APPS = [
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',
     'core',
 ]
 
@@ -78,6 +80,9 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'worldlive.wsgi.application'
+ASGI_APPLICATION = 'worldlive.asgi.application'
+# one ASGI process serves HTTP + WebSockets, so the in-memory layer is enough (no Redis to run)
+CHANNEL_LAYERS = {'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}}
 
 
 # Database
@@ -87,8 +92,27 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        # local development only — production runs on PostgreSQL (below)
+        'OPTIONS': {
+            'timeout': 20,
+            'transaction_mode': 'IMMEDIATE',
+            'init_command': 'PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA busy_timeout=20000;',
+        },
     }
 }
+# PostgreSQL whenever it is configured (production): POSTGRES_DB / USER / PASSWORD / HOST / PORT
+if os.environ.get('POSTGRES_DB'):
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ['POSTGRES_DB'],
+        'USER': os.environ.get('POSTGRES_USER', 'worldlive'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', ''),
+        'HOST': os.environ.get('POSTGRES_HOST', '127.0.0.1'),
+        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+        'CONN_MAX_AGE': 60,
+        'CONN_HEALTH_CHECKS': True,
+        'OPTIONS': {'application_name': 'worldlive'},
+    }
 
 
 # Password validation
@@ -148,3 +172,36 @@ WORLDLIVE_ANALYTICS_DAYS = int(os.environ.get("WORLDLIVE_ANALYTICS_DAYS", "180")
 # Only trust X-Forwarded-For when running behind your own reverse proxy (nginx, etc.)
 WORLDLIVE_TRUST_PROXY = os.environ.get("WORLDLIVE_TRUST_PROXY") == "1"
 LOGIN_URL = "/admin/login/"
+
+
+# ---------------------------------------------------------------- admin (Jazzmin)
+JAZZMIN_SETTINGS = {
+    "site_title": "WorldLive admin",
+    "site_header": "WorldLive",
+    "site_brand": "WorldLive",
+    "welcome_sign": "WorldLive boshqaruviga xush kelibsiz",
+    "copyright": "WorldLive · Developed by welicodev.uz",
+    "search_model": ["core.Account", "core.Journey"],
+    "topmenu_links": [
+        {"name": "Control dashboard", "url": "/control/", "new_window": False},
+        {"name": "Sayt", "url": "/", "new_window": True},
+        {"model": "core.Account"},
+    ],
+    "usermenu_links": [{"name": "welicodev.uz", "url": "https://welicodev.uz", "new_window": True}],
+    "show_ui_builder": False,
+    "order_with_respect_to": ["core.Account", "core.Journey", "core.ChatMessage", "core.Memory", "core.Stamp", "core.Track", "core.Device", "core.Event", "auth"],
+    "icons": {
+        "auth": "fas fa-users-cog", "auth.user": "fas fa-user-shield", "auth.Group": "fas fa-users",
+        "core.Account": "fas fa-id-badge", "core.Journey": "fas fa-plane-departure", "core.ChatMessage": "fas fa-comments",
+        "core.Memory": "fas fa-book-open", "core.Stamp": "fas fa-stamp", "core.Track": "fas fa-music",
+        "core.Device": "fas fa-mobile-alt", "core.DeviceIP": "fas fa-network-wired", "core.Event": "fas fa-shoe-prints",
+    },
+    "related_modal_active": True,
+    "changeform_format": "horizontal_tabs",
+}
+JAZZMIN_UI_TWEAKS = {
+    "theme": "darkly", "default_theme_mode": "dark",
+    "navbar": "navbar-dark", "sidebar": "sidebar-dark-warning", "accent": "accent-warning",
+    "brand_colour": "navbar-dark", "navbar_fixed": True, "sidebar_fixed": True, "sidebar_nav_child_indent": True,
+    "button_classes": {"primary": "btn-warning", "secondary": "btn-outline-light", "info": "btn-info", "warning": "btn-warning", "danger": "btn-danger", "success": "btn-success"},
+}

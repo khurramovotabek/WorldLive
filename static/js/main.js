@@ -8,6 +8,7 @@ import { CityScene, memHTML } from "./scene.js";
 import { track, trackContext } from "./track.js";
 import { giftItem, openComposer, presentGift, secretGift } from "./gifts.js";
 import { avatar, Chat, inviteUrl, lobby, online, readInvite } from "./together.js";
+import { floatReaction, RT } from "./realtime.js";
 
 const WL = (window.WL = { me: null, journey: null, role: "a", season: "auto", tod: "auto", open: (k) => openCity(byKey(k)) });
 const byKey = (k) => WL.world.cities.find((c) => c.key === k);
@@ -92,7 +93,6 @@ function armSecret(c) {
 }
 
 // ----------------------------------------------------------------------------- travel party (up to 8)
-const MAX_PARTY = 8;
 /** shrink a portrait on the device (max 512 px, JPEG) before it ever leaves the phone */
 function shrinkPhoto(file) {
   return new Promise((ok, no) => {
@@ -107,110 +107,188 @@ function shrinkPhoto(file) {
     im.src = url;
   });
 }
-function partyRow(i) {
-  return h(`<div class="pm extra" data-i="${i}">
-    <label class="pm-ph" title="${t("photoOpt")}"><input type="file" accept="image/jpeg,image/png,image/webp" hidden><span>+</span></label>
-    <div class="field"><label>${t("mateName")} ${i + 1}</label><input maxlength="40" autocomplete="off"></div>
-    <div class="pm-g seg"><button type="button" data-g="m" class="${i % 2 ? "" : "on"}" aria-label="♂">♂</button><button type="button" data-g="f" class="${i % 2 ? "on" : ""}" aria-label="♀">♀</button></div>
-    <button type="button" class="pm-x" aria-label="${t("remove")}">✕</button></div>`);
-}
-function bindParty() {
-  const box = $("#party"), more = $(".party-more", box);
-  const count = () => { const n = $$(".pm", box).length; $("#partyN").textContent = `${n} / ${MAX_PARTY}`; $("#addMate").disabled = n >= MAX_PARTY; };
-  const wire = (row) => {
-    $$(".pm-g button", row).forEach((b) => (b.onclick = () => { $$(".pm-g button", row).forEach((x) => x.classList.toggle("on", x === b)); }));
-    const inp = $("input[type=file]", row), ph = $(".pm-ph", row);
-    inp.onchange = async () => {
-      const f = inp.files[0]; if (!f) return;
-      try {
-        const blob = await shrinkPhoto(f); row._photo = blob;
-        ph.style.backgroundImage = `url(${URL.createObjectURL(blob)})`; ph.classList.add("has");
-        $("#consent").classList.remove("hidden");
-      } catch { toast(t("photoBad")); }
-    };
-    // a second tap on a chosen photo removes it
-    ph.addEventListener("click", (e) => { if (row._photo) { e.preventDefault(); row._photo = null; ph.style.backgroundImage = ""; ph.classList.remove("has"); inp.value = ""; } });
-    $(".pm-x", row)?.addEventListener("click", () => { row.remove(); count(); });
+// ----------------------------------------------------------------------------- intro: account + own profile
+// One person, one account: a unique @username (the login) + a 4-digit PIN. The traveller fills in only
+// their own name / gender / photo; companions join through the Telegram invite link and fill in theirs.
+const UNAME = /^[a-z0-9_.]{3,20}$/;
+const ACCT = { me: null, known: null };   // signed-in account; result of the last username check
+function bindProfile() {
+  const row = $("#party .pm"), ph = $(".pm-ph", row), inp = $("input[type=file]", row);
+  $$(".pm-g button", row).forEach((b) => (b.onclick = () => $$(".pm-g button", row).forEach((x) => x.classList.toggle("on", x === b))));
+  inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return;
+    try { const blob = await shrinkPhoto(f); row._photo = blob; ph.style.backgroundImage = `url(${URL.createObjectURL(blob)})`; ph.classList.add("has"); $("#consent").classList.remove("hidden"); }
+    catch { toast(t("photoBad")); }
   };
-  $$(".pm", box).forEach(wire);
-  $("#addMate").onclick = () => { const n = $$(".pm", box).length; if (n >= MAX_PARTY) return; const r = partyRow(n); box.insertBefore(r, more); wire(r); count(); $("input:not([type=file])", r).focus(); };
-  count();
-  // restore a saved party (names + genders; photos stay on the server)
-  const saved = store.get("party");
-  if (Array.isArray(saved)) saved.slice(2).forEach(() => $("#addMate").click());
-  if (Array.isArray(saved)) $$(".pm", box).forEach((r, i) => { const p = saved[i]; if (!p) return; const n = $("input:not([type=file])", r); if (i > 1) n.value = p.name || ""; $$(".pm-g button", r).forEach((b) => b.classList.toggle("on", b.dataset.g === p.g)); if (p.photo) { r._url = p.photo; $(".pm-ph", r).style.backgroundImage = `url(${p.photo})`; $(".pm-ph", r).classList.add("has"); } });
+  ph.addEventListener("click", (e) => { if (row._photo || row._url) { e.preventDefault(); row._photo = null; row._url = null; ph.style.backgroundImage = ""; ph.classList.remove("has"); inp.value = ""; } });
 }
-/** read the party from the form; upload consented photos once the journey code exists */
-async function collectParty(code) {
-  const rows = $$("#party .pm"), consent = $("#consentBox").checked, out = [];
-  for (const r of rows) {
-    const name = $("input:not([type=file])", r).value.trim(); if (!name) continue;
-    const g = $(".pm-g button.on", r)?.dataset.g || "m";
-    let photo = r._url || null;
-    if (r._photo && consent) {
-      try { const fd = new FormData(); fd.append("file", r._photo, "me.jpg"); fd.append("consent", "1"); photo = (await upload(`journey/${code}/avatar`, fd)).url; r._url = photo; r._photo = null; } catch { toast(t("photoBad")); }
-    } else if (r._photo && !consent) toast(t("needConsent"));
-    out.push({ name: name.slice(0, 40), g, photo });
-  }
-  return out.slice(0, MAX_PARTY);
+function profileOf() {
+  const row = $("#party .pm");
+  return { name: $("#nameA").value.trim().slice(0, 40), g: $(".pm-g button.on", row)?.dataset.g || "m", row };
+}
+function fillProfile(a) {
+  const row = $("#party .pm");
+  $("#nameA").value = a.name || "";
+  $$(".pm-g button", row).forEach((b) => b.classList.toggle("on", b.dataset.g === a.g));
+  if (a.photo) { row._url = a.photo; $(".pm-ph", row).style.backgroundImage = `url(${a.photo})`; $(".pm-ph", row).classList.add("has"); }
+}
+/** upload a consented photo once a journey exists, then remember it on the account */
+async function profilePhoto(code) {
+  const { row } = profileOf();
+  if (row._photo && $("#consentBox").checked) {
+    try {
+      const fd = new FormData(); fd.append("file", row._photo, "me.jpg"); fd.append("consent", "1");
+      row._url = (await upload(`journey/${code}/avatar`, fd)).url; row._photo = null;
+      api("account/update", { body: { photo: row._url } }).catch(() => {});
+    } catch { toast(t("photoBad")); }
+  } else if (row._photo) toast(t("needConsent"));
+  return row._url || null;
+}
+function paintAccount() {
+  const a = ACCT.me, bar = $("#acctBar");
+  $("#acct").classList.toggle("hidden", !!a);
+  bar.classList.toggle("hidden", !a);
+  if (!a) { $("#trips").classList.add("hidden"); return; }
+  bar.innerHTML = `${avatar({ name: a.name, g: a.g, photo: a.photo })}<div><b>${esc(a.name)}</b><span>@${esc(a.username)}</span></div><button class="linkish" data-out>${t("logout")}</button>`;
+  $("[data-out]", bar).onclick = async () => { await api("account/logout", { body: {} }).catch(() => {}); ACCT.me = null; store.set("journey", null); location.reload(); };
+  fillProfile(a);
+  const trips = readInvite() ? [] : (a.trips || []);
+  $("#trips").classList.toggle("hidden", !trips.length);
+  $("#trips").innerHTML = trips.length ? `<div class="eyebrow">${t("yourTrips")}</div>` + trips.slice(0, 4).map((x) => `
+    <button class="trip" data-trip="${esc(x.code)}"><b>${esc(x.code)}</b><span>${x.with.length ? "👥 " + esc(x.with.join(", ")) : t("waitingMate")}</span><em>${x.stamps ? "🛂 " + x.stamps : ""} ${x.started ? t("resume") + " →" : t("lobbyShort") + " →"}</em></button>`).join("") : "";
+  $$("#trips [data-trip]").forEach((b) => (b.onclick = () => resumeTrip(a.trips.find((x) => x.code === b.dataset.trip))));
+  $("#startBtn span").textContent = readInvite() ? t("joinTrip") : trips.length ? t("newTrip") : t("start");
+}
+async function resumeTrip(x) {
+  try {
+    const j = await api(`journey/${x.code}`);
+    const me = j.state.party?.find((m) => m.id === x.mid); if (!me) throw 0;
+    const role = me.host ? "a" : "b";
+    store.set("journey", { code: x.code, role, me: me.name, mid: x.mid });
+    return j.state.started ? enter(j, role, me.name) : toLobby(x.code, x.mid, role, me.name);
+  } catch { toast("✕ " + x.code); }
+}
+function hostCard(inv) {
+  const names = (inv.names || []).filter((n) => n && n !== inv.host);
+  return `<div class="host-card">
+    ${avatar({ name: inv.host, g: inv.g, photo: inv.photo }, "big")}
+    <div><div class="eyebrow">${t("invitation")}</div>
+      <p><b>${esc(inv.host)}</b>${inv.u ? ` <span class="faint">@${esc(inv.u)}</span>` : ""} ${t("invitedYou")}</p>
+      ${names.length ? `<small class="faint">${t("alreadyIn")}: ${esc(names.join(", "))}</small>` : ""}
+      <small class="faint">${t("tripId")} · <b class="mono">${esc(inv.code)}</b></small></div></div>`;
 }
 
-// ----------------------------------------------------------------------------- intro / journey
 function bindIntro() {
-  bindParty();
-  const saved = store.get("journey");
+  bindProfile();
   let invite = readInvite();
   const inviteMode = (inv) => {
     invite = inv;
     $("#intro").classList.add("invited");
-    $(".pm[data-i='1']")?.remove(); $$(".pm.extra").forEach((x) => x.remove()); $(".party-more")?.classList.add("hidden");
-    $("#inviteBanner")?.remove();
-    $(".party").before(h(`<div id="inviteBanner" class="invite-banner">✈ ${esc(inv.host || "")} ${t("invitedYou")} <b>${esc(inv.code)}</b></div>`));
+    $("#inviteHost").innerHTML = hostCard(inv);
     $("#startBtn span").textContent = t("joinTrip");
-    $("#joinToggle").classList.add("hidden");
+    $("#joinToggle").classList.add("hidden"); $("#introHow").textContent = t("introHowInvited");
+    paintAccount();
   };
   if (invite) inviteMode(invite);
-  else if (saved) { $("#nameA").value = saved.me || ""; $("#nameB").value = saved.partner?.split(", ")[0] || ""; }
   $$(".lang-switch button").forEach((b) => (b.onclick = () => setLang(b.dataset.lang)));
   $("#joinToggle").onclick = () => $("#joinBox").classList.toggle("hidden");
+  // signed in already on this device?
+  api("account").then((r) => { if (r.account) { ACCT.me = r.account; paintAccount(); } }).catch(() => {});
+  // live username check
+  let tm;
+  $("#uname").addEventListener("input", () => {
+    const u = $("#uname").value.trim().replace(/^@/, "").toLowerCase(); $("#uname").value = u;
+    clearTimeout(tm); ACCT.known = null;
+    const hint = $("#unameHint"); hint.className = "hint";
+    if (!u) { hint.textContent = t("unameHint"); return; }
+    if (!UNAME.test(u)) { hint.textContent = t("unameBad"); hint.classList.add("bad"); return; }
+    tm = setTimeout(async () => {
+      try {
+        const r = await api("account/check", { body: { username: u } }); if ($("#uname").value !== u) return;
+        ACCT.known = r;
+        if (!r.ok) { hint.textContent = r.why === "reserved" ? t("unameTaken") : t("unameBad"); hint.classList.add("bad"); }
+        else if (r.exists) { hint.textContent = `👋 ${t("welcomeBack")}, ${r.name} — ${t("enterPin")}`; hint.classList.add("ok"); }
+        else { hint.textContent = "✓ " + t("unameFree"); hint.classList.add("ok"); }
+        $("#party").classList.toggle("hidden", !!r.exists);
+      } catch {}
+    }, 350);
+  });
+  $("#upin").addEventListener("input", () => { $("#upin").value = $("#upin").value.replace(/\D/g, "").slice(0, 4); });
+  $("#upin").addEventListener("keydown", (e) => e.key === "Enter" && ($("#party").classList.contains("hidden") ? $("#startBtn").click() : $("#nameA").focus()));
+  $("#nameA").addEventListener("keydown", (e) => e.key === "Enter" && $("#startBtn").click());
+
   $("#startBtn").onclick = async () => {
-    const a = $("#nameA").value.trim(), b = $("#nameB")?.value.trim() || "";
-    if (!a) { $("#nameA").focus(); return toast(t("needName")); }
+    const btn = $("#startBtn");
     WL.music.unlock();
-    const btn = $("#startBtn"); btn.disabled = true;
+    btn.disabled = true;
     try {
-      // the same device coming back to its own journey
-      if (saved?.code && saved.mid && saved.me === a && (!invite || invite.code === saved.code)) {
-        try {
-          const j = await api(`journey/${saved.code}`);
-          if (j.state.party?.some((m) => m.id === saved.mid)) return j.state.started ? enter(j, saved.role, a) : toLobby(saved.code, saved.mid, saved.role, a);
-        } catch {}
+      // 1 · sign in, or create the default account on first use of the username
+      if (!ACCT.me) {
+        const u = $("#uname").value.trim(), pin = $("#upin").value;
+        if (!UNAME.test(u)) { $("#uname").focus(); return toast(t("unameBad")); }
+        if (!/^\d{4}$/.test(pin)) { $("#upin").focus(); return toast(t("pinHint")); }
+        const p = profileOf();
+        if (!ACCT.known?.exists && !p.name) { $("#nameA").focus(); return toast(t("needName")); }
+        let r;
+        try { r = await api("account/login", { body: { username: u, pin, name: p.name, g: p.g } }); }
+        catch (e) { const m = e?.message || ""; return toast(/wrong/.test(m) ? t("pinWrong") : /locked/.test(m) ? t("pinLocked") : /reserved/.test(m) ? t("unameTaken") : /name/.test(m) ? t("needName") : "✕"); }
+        ACCT.me = r.account; paintAccount();
+        track("login", { d: { u, created: r.created } });
+        const trips = r.account.trips || [];
+        if (invite) { const x = trips.find((q) => q.code === invite.code); if (x) return resumeTrip(x); }
+        else if (!r.created && trips.length) return toast(t("pickTrip"));   // show their trips first
       }
+      // 2 · own profile (name / gender / photo) — kept on the account
+      const p = profileOf();
+      if (!p.name) { $("#nameA").focus(); return toast(t("needName")); }
+      if (p.name !== ACCT.me.name || p.g !== ACCT.me.g) api("account/update", { body: { name: p.name, g: p.g } }).catch(() => {});
+      if (invite) { const x = ACCT.me.trips?.find((q) => q.code === invite.code); if (x) return resumeTrip(x); }
+      // 3 · create a journey (host) or join the invited one
       let code, role;
       if (invite) { code = invite.code; role = "b"; }
-      else { const j = await api("journey", { body: { a, b, lang: getLang(), state: { city: "tashkent" } } }); code = j.code; role = "a"; }
-      const party = await collectParty(code);
-      let mid = null;
-      for (const [i, p] of party.entries()) {
-        const r = await api(`journey/${code}/member`, { body: { ...p, ready: i > 0 } });   // mates typed on this device are ready already
-        if (i === 0) mid = r.mid;
-      }
-      store.set("party", party);
-      store.set("journey", { code, role, me: a, mid });
-      track(invite ? "join" : "create", { d: { code, n: party.length } });
-      toLobby(code, mid, role, a);
+      else { const j = await api("journey", { body: { a: p.name, b: "", lang: getLang(), state: { city: "tashkent" } } }); code = j.code; role = "a"; }
+      const photo = await profilePhoto(code);
+      const r = await api(`journey/${code}/member`, { body: { name: p.name, g: p.g, photo, self: true } });
+      store.set("journey", { code, role, me: p.name, mid: r.mid });
+      track(invite ? "join" : "create", { d: { code } });
+      toLobby(code, r.mid, role, p.name);
     } catch (e) { toast(/full/.test(e?.message || "") ? t("tripFull") : "✕"); }
     finally { btn.disabled = false; }
   };
   $("#joinBtn").onclick = async () => {
     const code = $("#joinCode").value.trim().toUpperCase();
-    try { const j = await api(`journey/${code}`); inviteMode({ code: j.code, host: j.a }); $("#startBtn").click(); }
+    try { const j = await api(`journey/${code}`); const host = j.state.party?.find((m) => m.host) || { name: j.a };
+      inviteMode({ code: j.code, host: host.name, photo: host.photo, g: host.g, u: host.u, names: (j.state.party || []).map((m) => m.name) }); }
     catch { toast("✕ " + code); }
   };
-  $("#nameA").addEventListener("keydown", (e) => e.key === "Enter" && ($("#nameB") ? $("#nameB").focus() : $("#startBtn").click()));
-  $("#nameB")?.addEventListener("keydown", (e) => e.key === "Enter" && $("#startBtn").click());
 }
+function live(code, mid) {
+  if (WL.rt?.code === code) return WL.rt;
+  WL.rt?.close();
+  return (WL.rt = new RT(code, mid));
+}
+on("rt:react", (m) => floatReaction(m.e, m.name));
+// ---- shared 3D moments: whoever opens one, everyone on the journey sees it too
+async function openMoment({ kind, item, place }, shared = false) {
+  const c = WL.scene.city || WL.earth.current; if (!c || WL._moment) return;
+  const pl = (place && c.attractions.find((a) => a.id === place)) || WL.scene.place || c.attractions[0];
+  WL._moment = true;
+  try {
+    const mod = await import("./moments.js"), party = WL.journey?.state?.party || [];
+    const dish = item ? (c.food || []).find((f) => f.id === item) : null;
+    if (!shared) {
+      push({ moment: { kind, item: item || null, place: pl?.id || null, city: c.key, at: Date.now(), by: WL.mid } });
+      track("moment", { city: c.key, d: { kind, item } });
+      if (dish) WL.scene._saveMemory("note", `${dish.emoji} ${L(dish.name)} — ${t("togetherAt")} ${L(c.name)}`, pl ? L(pl.names) : L(c.name));
+    } else toast(`✨ ${t("momentJoined")}`);
+    const S = await (kind === "balloon" ? mod.balloon({ city: c, party }) : kind === "paraglide" ? mod.paraglide({ city: c, place: pl, party }) : mod.cafe({ city: c, place: pl, party, dish, tod: WL.scene.tod || curTod(c) }));
+    if (S) S.onClose = () => (WL._moment = false); else WL._moment = false;
+  } catch (e) { console.error(e); WL._moment = false; }
+}
+on("moment:open", (m) => openMoment(m));
+on("rt:presence", () => { renderTop(); WL.chat?.quick?.(); });
 function toLobby(code, mid, role, me) {
+  live(code, mid);
   $("#intro").classList.add("lobbying");
   lobby({ code, mid, onStart: async () => {
     const j = await api(`journey/${code}`);
@@ -226,7 +304,8 @@ async function enter(j, role, me) {
   trackContext({ journey: j.code, role, name: me });
   track("enter", { city: j.state.city || "tashkent", d: { partner: partner || "" } });
   store.set("journey", { code: j.code, role, me, partner, mid });
-  WL.chat ||= new Chat({ journey: () => WL.journey, me, mid, onFly: (k) => { const c = byKey(k); if (!c) return; if (WL.scene.city) backToGlobe(); setTimeout(() => book(c), 400); } });
+  live(j.code, mid);
+  WL.chat ||= new Chat({ journey: () => WL.journey, me, mid, onFly: (k, agreed) => { const c = byKey(k); if (!c || WL.flying) return; if (WL.scene.city) backToGlobe(); setTimeout(() => book(c, agreed ? "agreed" : undefined), 400); } });
   WL.version = j.version;
   $("#intro").classList.add("out");
   $("#globe").classList.remove("dim");
@@ -295,6 +374,45 @@ function buildDock() {
   $$("#dockList .dest").forEach((b) => (b.onclick = () => preview(byKey(b.dataset.k))));
 }
 $("#search").addEventListener("input", buildDock);
+// phones: the destination list is a bottom sheet — peek (title + golden routes), open (full list), mini (just a handle)
+const PHONE = () => innerWidth <= 860;
+function dockState(st) {
+  const d = $("#dock");
+  d.classList.toggle("open", st === "open"); d.classList.toggle("mini", st === "mini");
+  $("#dockMin").textContent = st === "mini" ? "▢" : "–";
+  try { localStorage.setItem("wl-dock-mini", st === "mini" ? "1" : "0"); } catch {}
+  liftGlobe();
+}
+WL.dockState = dockState;
+// keep the globe in the free part of the screen, above the sheet
+function liftGlobe() {
+  const d = $("#dock"), g = $("#globe");
+  if (!PHONE() || d.classList.contains("away")) return g.style.setProperty("--lift", "0px");
+  const top = d.getBoundingClientRect().top, free = Math.max(160, top - 60);
+  g.style.setProperty("--lift", Math.round((innerHeight - free) / 2 - 30) + "px");
+}
+new MutationObserver(() => setTimeout(liftGlobe, 30)).observe($("#dock"), { attributes: true, attributeFilter: ["class"] });
+addEventListener("resize", liftGlobe);
+$("#dock").addEventListener("transitionend", liftGlobe);
+(() => {
+  const grip = $("#dockGrip"), head = $("#dock .dock-head");
+  let y0 = null, moved = 0;
+  const down = (e) => { if (!PHONE() || e.target.closest("input")) return; y0 = e.clientY; moved = 0; };
+  const move = (e) => { if (y0 != null) moved = e.clientY - y0; };
+  const up = () => {
+    if (y0 == null) return; y0 = null;
+    const d = $("#dock"), st = d.classList.contains("open") ? "open" : d.classList.contains("mini") ? "mini" : "peek";
+    if (moved < -28) dockState("open");
+    else if (moved > 28) dockState("mini");
+    else if (Math.abs(moved) < 6) dockState(st === "open" ? "mini" : "open");
+  };
+  [grip, head].forEach((el) => el?.addEventListener("pointerdown", down));
+  addEventListener("pointermove", move, { passive: true }); addEventListener("pointerup", up); addEventListener("pointercancel", () => (y0 = null));
+  $("#search").addEventListener("focus", () => PHONE() && dockState("open"));
+  $("#search").addEventListener("input", () => PHONE() && dockState("open"));
+  $("#dockFab").onclick = () => dockState("open");
+  if (PHONE()) dockState("mini");
+})();
 $("#dockMin").onclick = () => { const m = !$("#dock").classList.contains("mini"); $("#dock").classList.toggle("mini", m); $("#dockMin").textContent = m ? "▢" : "–"; try { localStorage.setItem("wl-dock-mini", m ? "1" : "0"); } catch {} };
 try { if (localStorage.getItem("wl-dock-mini") === "1") { $("#dock").classList.add("mini"); $("#dockMin").textContent = "▢"; } } catch {}
 
@@ -323,7 +441,8 @@ function preview(c, silent) {
       ${c.photo ? `<div class="credit" style="margin-top:10px">${t("photoBy")}: ${esc(c.photo.artist || "Wikimedia Commons")} · ${esc(c.photo.license)}</div>` : ""}
     </div>`;
   el.classList.remove("away");
-  $(".close-x", el).onclick = () => { el.classList.add("away"); WL.previewCity = null; buildDock(); WL.earth.idle(); };
+  if (PHONE()) $("#dock").classList.add("away");
+  $(".close-x", el).onclick = () => { el.classList.add("away"); WL.previewCity = null; $("#dock").classList.remove("away"); buildDock(); WL.earth.idle(); };
   $("[data-explore]", el).onclick = () => openCity(c);
   $("[data-book]", el)?.addEventListener("click", () => book(c));
   if (!silent) { WL.earth.focus(c, 1.35, 1800); buildDock(); }
@@ -335,6 +454,12 @@ function book(to, quick) {
   const km = Math.round(distanceKm(from, to)), mins = flightMinutes(km);
   const fno = "WL " + (100 + ((to.key.charCodeAt(0) * 7 + to.key.length * 31 + from.key.charCodeAt(1)) % 880));
   const sel = { cls: "business", seat: "window", dep: "now" };
+  if (quick === "agreed") {   // everyone voted yes in the chat: no forms — board together right away
+    if (from.key === to.key) return openCity(to);
+    track("fly", { city: to.key, d: { from: from.key, to: to.key, km, fno, dep: "now", agreed: true } });
+    push({ flight: { from: from.key, to: to.key, fno, dep: "now", at: Date.now() } });
+    return fly(from, to, { fno, dep: "now" });
+  }
   const wrap = h(`<div class="modal-wrap"><div class="modal glass dense">
     <div class="eyebrow">SkyJourney · ${esc(L(from.name))} → ${esc(L(to.name))}</div>
     <h2 class="display">${t("boarding")}</h2>
@@ -439,7 +564,14 @@ function openCity(c, atIndex = 0) {
   if (WL.journey.state.city !== c.key) push({ city: c.key });
 }
 function backToGlobe({ pick = false } = {}) {
-  if (!WL.scene.city) return;
+  document.body.classList.remove("zen");
+  if (WL.flying) return;
+  if (!WL.scene.city) {   // the scene already closed (or is closing): just make sure the globe is usable
+    $("#scene").classList.remove("on"); $("#globe").classList.remove("dim"); WL.earth.pause(false);
+    ["#dock", "#topbar"].forEach((s) => $(s).classList.remove("away"));
+    if (pick) showPicker();
+    return;
+  }
   track("globe", { city: WL.scene.city?.key });
   clearTimeout(WL._pauseT);
   WL.scene.close(); WL.earth.pause(false);
@@ -449,7 +581,16 @@ function backToGlobe({ pick = false } = {}) {
   WL.music.setContext({ city: WL.earth.current, season: curSeason(), tod: curTod(), ambience: { wind: 0.1 } });
   push({ inScene: false });
   // "fly somewhere else": open the destination list with the search ready
-  if (pick) setTimeout(() => { const sI = $("#search"); sI.value = ""; buildDock(); sI.focus({ preventScroll: true }); $("#dock").classList.add("pulse-once"); setTimeout(() => $("#dock").classList.remove("pulse-once"), 1200); }, 350);
+  if (pick) setTimeout(showPicker, 350);
+}
+function showPicker() {
+  const d = $("#dock"), sI = $("#search");
+  ["#dock", "#topbar"].forEach((s) => $(s).classList.remove("away")); $("#preview").classList.add("away"); WL.previewCity = null;
+  sI.value = ""; buildDock();
+  dockState("open");
+  $("#dockList").scrollTop = 0;
+  if (matchMedia("(pointer: fine)").matches) sI.focus({ preventScroll: true });
+  d.classList.add("pulse-once"); setTimeout(() => d.classList.remove("pulse-once"), 1200);
 }
 
 // ----------------------------------------------------------------------------- atmosphere controls
@@ -457,6 +598,7 @@ const SEASON_IC = { auto: "✦", spring: "🌸", summer: "☀️", autumn: "🍂
 const TOD_IC = { auto: "◐", cycle: "🔄", sunrise: "🌅", morning: "🌤️", noon: "☀️", golden: "🌇", sunset: "🌆", evening: "🌃", night: "🌙" };
 function bindAtmos() {
   $("#atmos").addEventListener("click", (e) => {
+    if (e.target.closest("[data-fold]")) { $("#atmos").classList.toggle("open"); return; }
     const s = e.target.closest("[data-season]")?.dataset.season, td = e.target.closest("[data-tod-open]");
     if (s) { WL.season = s; applyAtmos(); push({ season: s }); track("season", { city: (WL.scene.city || WL.earth.current)?.key, d: { season: s } }); }
     if (td) toggleTod();
@@ -466,7 +608,7 @@ function renderAtmos() {
   const c = WL.scene.city || WL.earth.current, cs = curSeason(c);
   const tropical = c?.climate === "tropical";
   const label = tropical ? (cs === "summer" || cs === "autumn" ? t("wet") : t("dry")) : t(cs);
-  $("#atmos").innerHTML = ["auto", "spring", "summer", "autumn", "winter"].map((s) => `<button class="icon-btn ${WL.season === s ? "on" : ""}" data-season="${s}" title="${t(s)}" aria-label="${t(s)}">${SEASON_IC[s]}</button>`).join("")
+  $("#atmos").innerHTML = `<button class="icon-btn fold-btn" data-fold aria-label="${t("timeOfDay")}">${SEASON_IC[WL.season] || "✦"}</button>` + ["auto", "spring", "summer", "autumn", "winter"].map((s) => `<button class="icon-btn ${WL.season === s ? "on" : ""}" data-season="${s}" title="${t(s)}" aria-label="${t(s)}">${SEASON_IC[s]}</button>`).join("")
     + `<span class="lbl">${esc(label)}</span><span class="sep"></span><button class="icon-btn ${WL.tod !== "auto" ? "on" : ""}" data-tod-open title="${t("timeOfDay")}">${TOD_IC[WL.tod === "auto" ? curTod(c) : WL.tod]}</button><span class="lbl">${t(WL.tod === "auto" ? "realtime" : WL.tod)}</span>`;
 }
 function toggleTod() {
@@ -554,8 +696,11 @@ function push(patch) {
 function startSync() {
   const beat = () => push({ ["seen_" + WL.role]: Date.now(), ...(WL.mid ? { ["seen_" + WL.mid]: Date.now() } : {}) });
   beat(); setInterval(beat, 20000);
-  const poll = async () => {
-    if (document.hidden || !WL.journey) return;
+  let busy = false, lastPoll = 0;
+  const poll = async (force) => {
+    if (!WL.journey || busy || (!force && document.hidden)) return;
+    if (!force && WL.rt?.up && Date.now() - lastPoll < 15000) return;   // the socket tells us when something changes
+    busy = true; lastPoll = Date.now();
     try {
       const r = await api(`journey/${WL.journey.code}?v=${WL.version}`);
       if (r.unchanged) return;
@@ -576,14 +721,22 @@ function startSync() {
       } else if (!WL.flying && s.city && s.city !== WL.earth.current.key && !s.flight) {
         WL.earth.current = byKey(s.city);
       }
+      if (s.moment && s.moment.at !== WL._lastMoment && s.moment.by !== WL.mid && Date.now() - s.moment.at < 60000 && !WL.flying) {
+        WL._lastMoment = s.moment.at;
+        const c = byKey(s.moment.city);
+        if (c && WL.scene.city?.key === c.key) openMoment(s.moment, true);
+      }
       if (s.season && s.season !== WL.season) { WL.season = s.season; applyAtmos(); }
       if (s.cycle0 && s.cycle0 !== WL.cycle0) WL.cycle0 = s.cycle0;
       if (s.tod && s.tod !== WL.tod) { WL.tod = s.tod; WL._cycTod = null; applyAtmos(); }
       void other;
       checkGifts();
-    } catch {}
+    } catch {} finally { busy = false; }
   };
   setInterval(poll, 2500);
+  on("rt:v", (m) => { if (m.v > (WL.version || 0)) poll(true); });
+  on("rt:open", () => poll(true));
+  on("rt:chat", (m) => WL.chat?.add([m.m], true));
 }
 
 boot().catch((e) => { console.error(e); $(".loader-txt").textContent = "Error: " + e.message; });

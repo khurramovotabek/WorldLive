@@ -178,3 +178,19 @@ h1 i { color: var(--gold); }
 .split.cols { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); column-gap: 18px; }
 .meter { height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .1); overflow: hidden; margin-top: 6px; }
 .meter i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold, #e9c98b), #fff3d6); }
+
+/* online now */
+.online-card { margin-bottom: 18px; }
+.online { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.on-row { display: grid; grid-template-columns: 36px 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 14px; background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07); }
+.on-row small { display: block; font-size: 11.5px; opacity: .65; }
+.dev-ic { font-size: 22px; text-align: center; }
+.on-where { display: grid; justify-items: end; gap: 2px; font-size: 12px; } .on-where a { font-family: ui-monospace, monospace; letter-spacing: .06em; }
+.split-pills { display: flex; gap: 8px; font-size: 13px; } .split-pills span { padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, .06); }
+.card-h h2 .pulse { vertical-align: middle; margin-right: 4px; }
+@media (max-width: 680px) {
+  .top nav { overflow-x: auto; white-space: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .top nav::-webkit-scrollbar { display: none; }
+  .online { grid-template-columns: 1fr; }
+  .table-wrap { overflow-x: auto; }
+}

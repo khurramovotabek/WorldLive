@@ -1,12 +1,17 @@
 from django.urls import path
 
-from . import analytics, control, views
+from . import accounts, analytics, control, views
 
 urlpatterns = [
     path("", views.index, name="index"),
     path("j/<str:code>", views.index, name="invite"),
     path("album/<str:code>", views.album, name="album"),
     path("api/config", views.config),
+    path("api/account", accounts.me),
+    path("api/account/check", accounts.check),
+    path("api/account/login", accounts.login),
+    path("api/account/update", accounts.update),
+    path("api/account/logout", accounts.logout),
     path("api/journey", views.journey_create),
     path("api/journey/<str:code>", views.journey_detail),
     path("api/journey/<str:code>/stamp", views.stamp_add),
@@ -26,6 +31,7 @@ urlpatterns = [
     path("control/devices", control.devices, name="control-devices"),
     path("control/events", control.events, name="control-events"),
     path("control/live", control.live),
+    path("control/accounts", control.accounts_page, name="control-accounts"),
     path("control/memories", control.memories, name="control-memories"),
     path("control/analytics", control.analytics, name="control-analytics"),
     path("control/server", control.server, name="control-server"),

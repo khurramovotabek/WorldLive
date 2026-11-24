@@ -46,5 +46,35 @@
   "page": "https://commons.wikimedia.org/wiki/File:Kilimanjaro_from_Amboseli.jpg",
   "artist": "Sergey Pesterev",
   "license": "CC BY-SA 4.0"
+ },
+ "city:cappadocia": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a6/Hot_air_balloons_over_valleys_near_G%C3%B6reme%2C_Cappadocia_at_dawn_2.JPG/1280px-Hot_air_balloons_over_valleys_near_G%C3%B6reme%2C_Cappadocia_at_dawn_2.JPG",
+  "page": "https://commons.wikimedia.org/wiki/File:Hot_air_balloons_over_valleys_near_G%C3%B6reme,_Cappadocia_at_dawn_2.JPG",
+  "artist": "MusikAnimal",
+  "license": "CC BY-SA 4.0"
+ },
+ "g-reme-national-park": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7d/Goreme_National_Park_Balloons.jpg/1280px-Goreme_National_Park_Balloons.jpg",
+  "page": "https://commons.wikimedia.org/wiki/File:Goreme_National_Park_Balloons.jpg",
+  "artist": "RozenGT",
+  "license": "CC BY-SA 4.0"
+ },
+ "city:tashkent": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e3/HSA_9442.jpg/1280px-HSA_9442.jpg",
+  "page": "https://commons.wikimedia.org/wiki/File:HSA_9442.jpg",
+  "artist": "Murodbek Yusupov",
+  "license": "CC BY-SA 4.0"
+ },
+ "tashkent-tower": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1b/Toshkent_teleminorasining_ko%CA%BBrinishi_01.jpg/1280px-Toshkent_teleminorasining_ko%CA%BBrinishi_01.jpg",
+  "page": "https://commons.wikimedia.org/wiki/File:Toshkent_teleminorasining_ko%CA%BBrinishi_01.jpg",
+  "artist": "Alpasli",
+  "license": "CC0"
+ },
+ "independence-square-tashkent": {
+  "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/74/Monument_at_Mustaqillik_maydoni_01.jpg/1280px-Monument_at_Mustaqillik_maydoni_01.jpg",
+  "page": "https://commons.wikimedia.org/wiki/File:Monument_at_Mustaqillik_maydoni_01.jpg",
+  "artist": "Davide Mauro",
+  "license": "CC BY-SA 4.0"
  }
 }

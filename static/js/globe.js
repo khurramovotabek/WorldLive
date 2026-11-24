@@ -105,6 +105,9 @@ export class Earth {
     const ctl = g.controls();
     ctl.autoRotate = true; ctl.autoRotateSpeed = 0.28; ctl.enableDamping = true; ctl.dampingFactor = 0.08;
     ctl.minDistance = 112; ctl.maxDistance = 900;
+    // phones: a calmer, more precise drag, and the canvas owns every touch (no page pull / pinch-zoom)
+    if (matchMedia("(pointer: coarse)").matches) { ctl.rotateSpeed = 0.55; ctl.zoomSpeed = 0.7; ctl.dampingFactor = 0.12; }
+    el.style.touchAction = "none";
 
     const tl = new THREE.TextureLoader();
     const tex = (f) => { const t = tl.load(IMG + f); t.anisotropy = 8; return t; };
@@ -232,7 +235,9 @@ export class Earth {
 
   focus(city, altitude = 1.6, ms = 2200) {
     this.g.controls().autoRotate = false;
-    this.g.pointOfView({ lat: city.lat - 6, lng: city.lng, altitude }, ms);
+    // portrait phones: pull back so the whole globe fits the narrow screen
+    const portrait = innerWidth / innerHeight < 0.8;
+    this.g.pointOfView({ lat: city.lat - (portrait ? 2 : 6), lng: city.lng, altitude: altitude * (portrait ? 1.45 : 1) }, ms);
   }
   idle() { this.g.controls().autoRotate = true; }
   pause(p) {

@@ -16,7 +16,7 @@ KINDS = {
     "visit", "enter", "join", "lang", "preview", "book", "fly", "land", "city", "place", "tab",
     "season", "tod", "music", "song_add", "upload", "memory", "postcard", "photo", "passport",
     "globe", "share", "3d", "leave", "adhan", "song_stamp", "status_copy", "film", "gift", "gift_send",
-    "create", "plan", "chat", "propose", "ready", "invite", "album", "tour", "zen", "cycle",
+    "create", "login", "moment", "plan", "chat", "propose", "ready", "invite", "album", "tour", "zen", "cycle",
 }
 MAX_EVENTS = 40
 

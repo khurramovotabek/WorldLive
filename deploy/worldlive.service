@@ -1,5 +1,5 @@
 [Unit]
-Description=WorldLive (gunicorn)
+Description=WorldLive (uvicorn: HTTP + WebSockets)
 After=network.target
 
 [Service]
@@ -7,7 +7,8 @@ User=worldlive
 Group=worldlive
 WorkingDirectory=/opt/worldlive/app
 EnvironmentFile=/opt/worldlive/.env
-ExecStart=/opt/worldlive/venv/bin/gunicorn worldlive.wsgi:application --bind 127.0.0.1:8020 --workers 3 --timeout 60 --access-logfile -
+# one process: the in-memory channel layer lives in it, so every socket of a journey meets there
+ExecStart=/opt/worldlive/venv/bin/uvicorn worldlive.asgi:application --host 127.0.0.1 --port 8020 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1 --ws-ping-interval 25 --no-access-log
 Restart=always
 RestartSec=3
 

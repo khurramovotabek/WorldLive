@@ -372,7 +372,7 @@ function dressUp(model, girl, look = 0) {
     const head = bones.Head, ws = head.getWorldScale(new THREE.Vector3()), hq = head.getWorldQuaternion(new THREE.Quaternion()).invert();
     // place a mesh on the head in world-space metres, whatever the bone's own axes / scale are
     const put = (mesh, x, y, z) => { mesh.scale.divide(ws); mesh.quaternion.premultiply(hq); mesh.position.copy(new THREE.Vector3(x, y, z).applyQuaternion(hq).divide(ws)); mesh.castShadow = true; head.add(mesh); return mesh; };
-    const hairM = new THREE.MeshPhysicalMaterial({ color: girl ? [0x3b2416, 0x5a3a22, 0x2a1a10, 0x6e4a2a][look % 4] : HAIR[look % HAIR.length], roughness: 0.48, sheen: 1, sheenColor: new THREE.Color(girl ? 0x9a7050 : 0x4a3a30), sheenRoughness: 0.4, side: THREE.DoubleSide });
+    const hairM = new THREE.MeshPhysicalMaterial({ color: girl ? [0x0f0b09, 0x3b2416, 0x1a120d, 0x5a3a22][look % 4] : [0x0d0a08, 0x1c140f, 0x2b1d14, 0x15100c][look % 4], roughness: 0.48, sheen: 1, sheenColor: new THREE.Color(girl ? 0x9a7050 : 0x4a3a30), sheenRoughness: 0.4, side: THREE.DoubleSide });
     if (!girl) {
       // a modern short cut: tight sides, a little volume swept up at the front
       const cap = new THREE.Mesh(new THREE.SphereGeometry(0.1, 40, 20, 0, Math.PI * 2, 0, Math.PI * 0.5), hairM);
@@ -391,6 +391,7 @@ function dressUp(model, girl, look = 0) {
       fringe.scale.set(1.08, 1.0, 1.16); put(fringe, 0, 0.098, -0.004);
     }
   }
+  if (!girl && bones.Spine2) shirtFront(model, bones);
   if (girl && bones.Hips) {
     // a soft white dress from the waist to below the knee, swaying with the hips
     const prof = [[0.135, 0.06], [0.15, 0], [0.19, -0.18], [0.25, -0.42], [0.3, -0.62], [0.31, -0.66]].map(([r, y]) => new THREE.Vector2(r, y));
@@ -405,6 +406,30 @@ function dressUp(model, girl, look = 0) {
     hip.add(skirt);
   }
   return bones;
+}
+
+// a crisp white shirt and a slim black tie in the V of the black jacket: found by ray-casting the suit's chest
+function shirtFront(model, bones) {
+  model.updateMatrixWorld(true);
+  const sp = bones.Spine2, neck = bones.Neck || bones.Head;
+  const top = neck.getWorldPosition(new THREE.Vector3()), mid = sp.getWorldPosition(new THREE.Vector3());
+  const suit = []; model.traverse((o) => { if (o.isMesh && /Outfit_Top|Body/.test(o.material?.name || "")) suit.push(o); });
+  const rc = new THREE.Raycaster(), hit = (y) => { rc.set(new THREE.Vector3(mid.x, y, mid.z + 1), new THREE.Vector3(0, 0, -1)); return rc.intersectObjects(suit, false)[0]?.point; };
+  const hTop = hit(top.y - (top.y - mid.y) * 0.15), hLow = hit(mid.y - (top.y - mid.y) * 0.25);
+  if (!hTop || !hLow) return;
+  const hgt = hTop.y - hLow.y, wTop = hgt * 0.62;
+  const shape = new THREE.Shape(); shape.moveTo(-wTop / 2, 0); shape.lineTo(wTop / 2, 0); shape.lineTo(0, -hgt); shape.closePath();
+  const white = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshStandardMaterial({ color: 0xf7f7f4, roughness: 0.55 }));
+  const tieS = new THREE.Shape(); const tw = wTop * 0.13;
+  tieS.moveTo(-tw * 0.6, 0); tieS.lineTo(tw * 0.6, 0); tieS.lineTo(tw, -hgt * 0.75); tieS.lineTo(0, -hgt * 0.86); tieS.lineTo(-tw, -hgt * 0.75); tieS.closePath();
+  const tie = new THREE.Mesh(new THREE.ShapeGeometry(tieS), new THREE.MeshStandardMaterial({ color: 0x0b0b0e, roughness: 0.35, metalness: 0.1 }));
+  const g = new THREE.Group(); g.add(white); tie.position.z = 0.002; g.add(tie);
+  g.position.set(mid.x, hTop.y, Math.max(hTop.z, hLow.z) + 0.006);
+  // keep it in the spine's space so it follows breathing and walking
+  const ws = sp.getWorldScale(new THREE.Vector3()), q = sp.getWorldQuaternion(new THREE.Quaternion()).invert();
+  const local = sp.worldToLocal(g.position.clone());
+  g.position.copy(local); g.quaternion.copy(q); g.scale.set(1 / ws.x, 1 / ws.y, 1 / ws.z);
+  sp.add(g);
 }
 
 function realPerson(gltf, clips, height, name, girl, rest = {}, assets = null, look = 0) {
@@ -635,7 +660,7 @@ async function show(mode, { city, a = "", b = "", tod = "golden", party = null }
       scene.add(sk);
     }
     // the travel party: 1–8 people, each built from their name + gender, walking in pairs
-    const HM = [1.8, 1.83, 1.77, 1.85], HF = [1.67, 1.64, 1.7, 1.66];
+    const HM = [1.82, 1.8, 1.84, 1.78], HF = [1.7, 1.67, 1.72, 1.66];
     const mk = (girl, name, look) => assets
       ? realPerson(girl ? assets.her : assets.him, assets.clips, (girl ? HF : HM)[look % 4], name, girl, assets.rest, assets, look)
       : person(girl ? { girl, skin: 0xf1d2bf, hair: 0x4a2a1a, top: DRESSES[look % 6], bottom: DRESSES[look % 6], name } : { girl, skin: 0xefcdb6, hair: 0x2a1a12, top: SUITS[look % 6], bottom: SUITS[look % 6], name });
@@ -686,7 +711,7 @@ async function show(mode, { city, a = "", b = "", tod = "golden", party = null }
     const frame = () => {
       raf = requestAnimationFrame(frame);
       const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
-      const T = (now - t0) / 1000, k = window.__b3k ?? clamp01(T / D);
+      const T = (now - t0) / 1000, k = Math.min(1, window.__b3k ?? clamp01(T / D));
       const sL = lead(k), sgn = mode === "board" ? -1 : 1, pausing = Math.abs(sL - sTop) < 0.01;
       const sPos = people.map((_, i) => {
         const row = Math.floor(i / 2), base = sL + sgn * row * ROW;
@@ -732,6 +757,21 @@ async function show(mode, { city, a = "", b = "", tod = "golden", party = null }
       const drift = new THREE.Vector3().subVectors(focus, foot).setY(0).multiplyScalar(0.45);
       cam.position.add(drift);
       cam.lookAt(lerp(focus.x, st.position.x, 0.4) - 0.8, 1.5 + focus.y * 0.75, lerp(focus.z, st.position.z, 0.5) - 1.2);
+      // after boarding: the door seals, the stairs roll away, and the aircraft takes off down the runway
+      if (k >= 1 && mode === "board" && (window.__b3k == null || window.__b3k > 1)) {
+        frame.tko ??= now;
+        const s = (now - frame.tko) / 1000;
+        if (s < 0.1) $(".b3-cap .eyebrow", wrap).textContent = "✈ " + t("takeoff");
+        st.position.x = frame.stX ??= st.position.x; st.position.x = frame.stX + Math.max(0, s - 0.6) * 2.2;
+        const roll = Math.max(0, s - 1.6), x = 0.5 * 9 * roll * roll, lift = Math.max(0, roll - 3.6);
+        plane.position.x = -6 + x; plane.position.y = lift * lift * 2.4; plane.rotation.z = Math.min(0.2, lift * 0.22);
+        const px = plane.position.x;
+        cam.position.set(Math.max(px - 22, 6) * 0.35 + 6, 3.2 + plane.position.y * 0.25, 30 - Math.min(10, roll * 1.2));
+        cam.lookAt(px + 4, 1.5 + plane.position.y, -2.5);
+        renderer.render(scene, cam);
+        if (s > 7.4) finish();
+        return;
+      }
       renderer.render(scene, cam);
       if (k >= 1) finish();
     };
@@ -740,3 +780,6 @@ async function show(mode, { city, a = "", b = "", tod = "golden", party = null }
     wrap.addEventListener("transitionend", () => removeEventListener("resize", onResize), { once: true });
   }
 }
+
+// shared with the 3D moments (moments.js)
+export { loadPeople, reach, realPerson };

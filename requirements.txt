@@ -2,4 +2,7 @@ Django==5.2.19
 asgiref==3.13.0
 sqlparse==0.6.1
 pillow==13.0.0
-gunicorn==23.0.0
+channels==4.3.1
+uvicorn[standard]==0.35.0
+django-jazzmin==3.0.5
+psycopg[binary]==3.2.13

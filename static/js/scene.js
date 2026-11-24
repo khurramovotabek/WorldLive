@@ -8,6 +8,7 @@ import { PRAYERS, PRAYER_NAMES, clockIn, nextPrayer, prayerTimes } from "./praye
 import { track } from "./track.js";
 import { NightLights, towerOf } from "./lights.js";
 import { planFor } from "./plans.js";
+import { PARAGLIDE } from "./moments.js";
 
 const CAT_ICON = { mosque: "🕌", sacred: "🕋", heritage: "🏛️", square: "⛲", bazaar: "🧺", tower: "🗼", museum: "🖼️", monument: "🏛️", district: "🏘️", street: "🛣️",
   water: "🌊", palace: "🏰", bridge: "🌉", nature: "🌿", mountain: "⛰️", waterfall: "💧", island: "🏝️", beach: "🏖️", city: "🏙️", village: "🏘️", science: "🔭",
@@ -24,7 +25,9 @@ export class CityScene {
         <button class="icon-btn glass" data-back aria-label="${t("backGlobe")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></svg></button>
         <button class="secret-spark" data-secret hidden aria-label="🎁"><span>🎁</span></button>
         <button class="zen-btn glass" data-zen title="${t("cleanView")}" aria-label="${t("cleanView")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        <button class="adv-btn glass pill" data-adv hidden><i data-adv-ic>🎈</i> <span data-adv-t></span></button>
         <button class="plan-btn glass pill" data-plan>📖 <span>${t("dayPlan")}</span></button>
+        <button class="more-btn glass" data-more aria-label="⋯">⋯</button>
         <button class="fly-btn glass pill" data-fly>✈ <span>${t("flyElsewhere")}</span></button>
         <div class="scene-title"><div class="eyebrow" data-country></div><div class="display" data-city></div><div class="level-tag glass pill" data-level></div></div>
       </div>
@@ -44,14 +47,34 @@ export class CityScene {
     this.weather = new Weather($("#fx", root));
     this.lights = new NightLights(root); $(".aurora", root).after(this.lights.cv);
     this.layerA = $("[data-a]", root); this.layerB = $("[data-b]", root); this.front = this.layerA;
-    $("[data-back]", root).onclick = () => this.onBack();
-    $("[data-fly]", root).onclick = () => this.onBack({ pick: true });
+    $("[data-back]", root).onclick = (e) => { e.stopPropagation(); document.body.classList.remove("zen"); this.onBack(); };
+    // phones: the extra round buttons fold behind "⋯" at the edge
+    const top = $(".scene-top", root);
+    $("[data-more]", root).onclick = (e) => { e.stopPropagation(); top.classList.toggle("more"); };
+    top.addEventListener("click", (e) => { if (e.target.closest(".zen-btn, .plan-btn, .adv-btn")) setTimeout(() => top.classList.remove("more"), 50); });
+    $("[data-fly]", root).onclick = (e) => { e.stopPropagation(); document.body.classList.remove("zen"); this.onBack({ pick: true }); };
     $("[data-secret]", root).onclick = () => emit("gift:secret", this.city);
     $("[data-plan]", root).onclick = () => this.plan();
+    $("[data-adv]", root).onclick = (e) => {
+      e.stopPropagation();
+      const c = this.city, both = c.key === "cappadocia";
+      if (!both) return emit("moment:open", { kind: "paraglide" });
+      $(".adv-pop", root)?.remove();
+      const pop = h(`<div class="adv-pop glass dense"><button data-k="balloon">🎈 ${t("balloonTitle")}</button><button data-k="paraglide">🪂 ${t("paraTitle")}</button></div>`);
+      root.append(pop);
+      pop.onclick = (ev) => { const b = ev.target.closest("[data-k]"); pop.remove(); if (b) emit("moment:open", { kind: b.dataset.k }); };
+      setTimeout(() => addEventListener("click", () => pop.remove(), { once: true }), 0);
+    };
     // clean view: hide every floating panel to enjoy the place; tap anywhere (or the eye) to bring them back
     const zen = (v) => { document.body.classList.toggle("zen", v); if (v) { toast(t("cleanHint")); track("zen", { city: this.city?.key }); } };
     $("[data-zen]", root).onclick = (e) => { e.stopPropagation(); zen(!document.body.classList.contains("zen")); };
-    root.addEventListener("click", (e) => { if (document.body.classList.contains("zen") && !e.target.closest("[data-zen]")) zen(false); });
+    root.addEventListener("click", (e) => {
+      if (document.body.classList.contains("zen")) { if (!e.target.closest("[data-zen]")) zen(false); return; }
+      // phones: a tap on the bare scenery folds everything away — the picture is the point
+      if (innerWidth <= 860 && (e.target === root || e.target.matches(".scene-photo, .grade, .grade2, .scene-shade, #fx, .aurora, canvas")) && !e.target.closest(".glass, .sheet, .place-card")) {
+        if (!this._zenTold) { this._zenTold = true; zen(true); } else document.body.classList.add("zen");
+      }
+    });
   }
 
   /** Makkah · Madinah: today's real prayer times in local time, the next one counting down */
@@ -72,6 +95,8 @@ export class CityScene {
   }
 
   open(city, { season, tod, atIndex = 0 } = {}) {
+    { const adv = $("[data-adv]", this.root), ok = city.key === "cappadocia" || PARAGLIDE.has(city.key);
+      adv.hidden = !ok; if (ok) { $("[data-adv-ic]", adv).textContent = city.key === "cappadocia" ? "🎈" : "🪂"; $("[data-adv-t]", adv).textContent = city.key === "cappadocia" ? t("balloonTitle") : t("paraTitle"); } }
     this.city = city; this.idx = -1; this.tab = "places";
     this.season = season; this.tod = tod;
     const r = this.root;
@@ -243,7 +268,16 @@ export class CityScene {
     if (k === "places") return this._card();
     const sheet = h(`<div class="sheet glass dense"></div>`);
     this.root.append(sheet);
+    // a handle to fold the sheet back (tap or swipe down) — the scenery stays free on phones
+    const grip = h(`<button class="sheet-grip" type="button" aria-label="${t("swipeHint")}"><i></i></button>`);
+    const shut = () => this.setTab("places");
+    grip.onclick = shut; grip.addEventListener("pointerup", () => setTimeout(() => sheet.isConnected && shut(), 0));
+    let y0 = null;
+    sheet.addEventListener("pointerdown", (e) => { if (sheet.scrollTop <= 0 && e.target.closest(".sheet-grip, .eyebrow, h2, h3, .taste-hero")) y0 = e.clientY; });
+    sheet.addEventListener("pointerup", (e) => { if (y0 != null && e.clientY - y0 > 50) shut(); y0 = null; });
     k === "taste" ? this._taste(sheet) : this._journal(sheet);
+    sheet.prepend(grip);
+    new MutationObserver(() => { if (!grip.isConnected && sheet.isConnected) sheet.prepend(grip); }).observe(sheet, { childList: true });
   }
 
   _card() {
@@ -288,12 +322,20 @@ export class CityScene {
 
   _taste(el) {
     const c = this.city;
-    el.innerHTML = `<div class="eyebrow">${t("taste")} · ${esc(L(c.name))}</div>
-      <h3 class="display" style="font-size:32px;margin:6px 0 0">${esc(L(c.tagline))}</h3>
-      <div class="food-grid">${(c.food || []).map((f) => `<button class="food" data-f="${f.id}"><div class="e">${f.emoji}</div><b>${esc(L(f.name))}</b><p>${esc(L(f.text))}</p></button>`).join("")}</div>`;
-    $$(".food", el).forEach((b) => (b.onclick = () => {
-      const f = c.food.find((x) => x.id === b.dataset.f);
-      b.animate([{ transform: "scale(1)" }, { transform: "scale(1.05)" }, { transform: "scale(1)" }], { duration: 500 });
+    const bg = (this.place?.photo || c.photo)?.src?.replace(/\/\d+px-/, "/960px-") || "";
+    el.innerHTML = `<div class="taste-hero" style="background-image:linear-gradient(180deg,rgba(0,0,0,.05),rgba(10,8,6,.82)),url('${esc(bg)}')">
+        <div class="eyebrow">${t("taste")} · ${esc(L(c.name))}</div>
+        <h3 class="display">${esc(L(c.tagline))}</h3>
+        <p>${t("tasteLead")}</p>
+        <button class="btn btn-gold" data-cafe>☕ ${t("cafeTogether")}</button>
+      </div>
+      <div class="food-grid">${(c.food || []).map((f) => `<div class="food" data-f="${f.id}"><div class="e">${f.emoji}</div><b>${esc(L(f.name))}</b><p>${esc(L(f.text))}</p>
+        <div class="food-acts"><button class="btn btn-gold" data-order="${f.id}">🍽️ ${t("orderTogether")}</button><button class="btn btn-ghost" data-keep="${f.id}" title="${t("saveTaste")}">♡</button></div></div>`).join("")}</div>`;
+    $("[data-cafe]", el).onclick = () => emit("moment:open", { kind: "cafe" });
+    $$("[data-order]", el).forEach((b) => (b.onclick = () => emit("moment:open", { kind: "cafe", item: b.dataset.order })));
+    $$("[data-keep]", el).forEach((b) => (b.onclick = () => {
+      const f = c.food.find((x) => x.id === b.dataset.keep);
+      b.textContent = "♥"; b.animate([{ transform: "scale(1)" }, { transform: "scale(1.3)" }, { transform: "scale(1)" }], { duration: 450 });
       this._saveMemory("note", `${f.emoji} ${L(f.name)}`, L(c.name));
     }));
   }

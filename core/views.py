@@ -12,7 +12,9 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
+from . import accounts
 from .models import ChatMessage, Journey, Memory, Stamp, Track
+from .realtime import notify
 
 AUDIO_EXT = {".mp3", ".ogg", ".oga", ".m4a", ".aac", ".wav", ".flac", ".opus", ".webm"}
 
@@ -24,7 +26,10 @@ def index(request, code=None):
     if code:
         j = Journey.objects.filter(code=code.upper()).first()
         if j:
-            invite = {"code": j.code, "host": j.traveler_a, "n": len(j.state.get("party") or []) or 1}
+            party = j.state.get("party") or []
+            host = next((m for m in party if m.get("host")), None) or {}
+            invite = {"code": j.code, "host": host.get("name") or j.traveler_a, "photo": host.get("photo"), "g": host.get("g", "m"),
+                      "u": host.get("u"), "n": len(party) or 1, "names": [m.get("name") for m in party][:8]}
     return render(request, "index.html", {"has_3d": bool(settings.GOOGLE_MAPS_API_KEY), "invite": invite})
 
 
@@ -71,6 +76,7 @@ def journey_detail(request, code):
         j.state = {**j.state, **d["state"]}
     j.version += 1
     j.save()
+    notify(j.code, {"t": "v", "v": j.version})
     return JsonResponse({"version": j.version, "state": j.state, "b": j.traveler_b})
 
 
@@ -84,6 +90,7 @@ def stamp_add(request, code):
                              flight_no=str(d.get("flight", ""))[:12])
         j.version += 1
         j.save(update_fields=["version", "updated"])
+        notify(j.code, {"t": "v", "v": j.version})
     except IntegrityError:
         pass
     return JsonResponse({"stamps": [s.as_dict() for s in j.stamps.all()]})
@@ -102,6 +109,7 @@ def memory_add(request, code):
                               open_on=d.get("open_on") or None)
     j.version += 1
     j.save(update_fields=["version", "updated"])
+    notify(j.code, {"t": "v", "v": j.version})
     return JsonResponse(m.as_dict(), status=201)
 
 
@@ -274,6 +282,9 @@ def member(request, code):
         j = get_object_or_404(Journey.objects.select_for_update(), code=code.upper())
         party = list(j.state.get("party") or [])
         mid = str(d.get("mid") or "")[:16]
+        acct = accounts.current(request) if d.get("self") else None
+        if acct and not mid:
+            mid = (acct.trips or {}).get(j.code, "")
         me = next((m for m in party if mid and m.get("id") == mid), None)
         if me:
             me.update({"name": name, "g": g, **({"photo": photo} if photo else {})})
@@ -281,13 +292,17 @@ def member(request, code):
             if len(party) >= MAX_PARTY:
                 return JsonResponse({"error": "full"}, status=409)
             mid = _s.token_urlsafe(9)[:12]
-            party.append({"id": mid, "name": name, "g": g, "photo": photo or None, "ready": bool(d.get("ready")), "host": not party})
+            party.append({"id": mid, "name": name, "g": g, "photo": photo or None, "ready": bool(d.get("ready")), "host": not party,
+                          **({"u": acct.username} if acct else {})})
             if len(party) == 2 and not j.traveler_b:
                 j.traveler_b = name
             ChatMessage.objects.create(journey=j, kind="system", text="join", data={"name": name})
         j.state = {**j.state, "party": party}
         j.version += 1
         j.save(update_fields=["state", "version", "traveler_b", "updated"])
+    if acct:
+        accounts.link(request, j.code, mid)
+    notify(j.code, {"t": "v", "v": j.version})
     return JsonResponse({"mid": mid, **_member_out(j)})
 
 
@@ -309,6 +324,7 @@ def member_ready(request, code):
         j.state = state
         j.version += 1
         j.save(update_fields=["state", "version", "updated"])
+    notify(j.code, {"t": "v", "v": j.version})
     return JsonResponse(_member_out(j))
 
 
@@ -321,9 +337,14 @@ def chat(request, code):
         return JsonResponse({"messages": [m.as_dict() for m in qs.order_by("-id")[:80]][::-1]})
     d = _body(request)
     text = str(d.get("text") or "").strip()[:500]
-    kind = d.get("kind") if d.get("kind") in ("text", "propose") else "text"
+    kind = d.get("kind") if d.get("kind") in ("text", "propose", "agree") else "text"
     data = {}
-    if kind == "propose":
+    if kind == "agree":
+        ref = (d.get("data") or {}).get("ref")
+        if not isinstance(ref, int) or not j.chat.filter(id=ref, kind="propose").exists():
+            return HttpResponseBadRequest("unknown proposal")
+        data = {"ref": ref}
+    elif kind == "propose":
         data = {"city": str((d.get("data") or {}).get("city") or "")[:40]}
         if not data["city"]:
             return HttpResponseBadRequest("city required")
@@ -332,6 +353,7 @@ def chat(request, code):
     m = ChatMessage.objects.create(journey=j, author=_clean_name(d.get("author")), mid=str(d.get("mid") or "")[:16],
                                    kind=kind, text=text, data=data)
     Journey.objects.filter(pk=j.pk).update(version=models.F("version") + 1)
+    notify(j.code, {"t": "chat", "m": m.as_dict()})
     return JsonResponse(m.as_dict(), status=201)
 
 

@@ -145,5 +145,5 @@ export const QUALITY = (() => {
   const cores = navigator.hardwareConcurrency || 4, mem = navigator.deviceMemory || 4;
   const small = Math.min(innerWidth, innerHeight) < 600;
   const tier = reduce ? 0 : cores >= 8 && mem >= 8 && !small ? 2 : 1;
-  return { tier, reduce, dpr: Math.min(devicePixelRatio || 1, tier === 2 ? 1.75 : 1.25) };
+  return { tier, reduce, dpr: Math.min(devicePixelRatio || 1, small && !reduce ? 2 : tier === 2 ? 1.75 : 1.25), small };
 })();

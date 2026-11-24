@@ -220,6 +220,8 @@ class Command(BaseCommand):
         # hand-picked Commons photos for places whose article image is missing or duplicated
         ov = json.loads((Path(__file__).resolve().parents[2] / "photo_overrides.json").read_text())
         for c in out["cities"]:
+            if "city:" + c["key"] in ov:
+                c["photo"] = ov["city:" + c["key"]]
             for a in c["attractions"]:
                 if a["id"] in ov:
                     a["photo"] = ov[a["id"]]

@@ -40,7 +40,7 @@ KIND = {
     "3d": ("🧭", "3D shahar"), "leave": ("🚪", "Chiqdi"),
     "adhan": ("🕌", "Azonni tingladi"), "song_stamp": ("💿", "Qo‘shiq muhri bosdi"),
     "status_copy": ("💬", "Statusni nusxaladi"), "film": ("🎬", "“Bizning film”ni yaratdi"), "gift": ("🎁", "Sovg‘ani ochdi"), "gift_send": ("💝", "Sovg‘a yubordi"),
-    "create": ("🧭", "Sayohat yaratdi"), "plan": ("📖", "Kun rejasi qadamini tanladi"), "chat": ("💬", "Chatga yozdi"),
+    "create": ("🧭", "Sayohat yaratdi"), "login": ("🔑", "Akkauntga kirdi"), "moment": ("✨", "3D lahza ochdi"), "plan": ("📖", "Kun rejasi qadamini tanladi"), "chat": ("💬", "Chatga yozdi"),
     "propose": ("✈️", "Manzil taklif qildi"), "ready": ("✅", "Tayyorligini bildirdi"), "invite": ("📨", "Telegram orqali taklif yubordi"),
     "album": ("📔", "Xotira albomini ochdi"), "tour": ("⏭️", "Keyingi joyga o‘tdi"), "zen": ("👁️", "Toza ko‘rinishni yoqdi"), "cycle": ("🔄", "Jonli kunni yoqdi"),
 }
@@ -142,7 +142,9 @@ def overview(request):
         "couples": _journey_rows(journeys),
         "feed": [_row(e) for e in ev.select_related("device", "journey")[:40]],
         "nav": "overview",
+        "online": _online(),
     }
+    ctx["kpi"]["accounts"] = __import__("core.models", fromlist=["Account"]).Account.objects.count()
     return render(request, "control/overview.html", ctx)
 
 
@@ -201,11 +203,50 @@ def events(request):
     return render(request, "control/events.html", {"page": page, "rows": [_row(e) for e in page], "kind": kind, "q": q, "kinds": KIND, "nav": "events"})
 
 
+def _online():
+    """Who is in the app right now: device type, where they are, which journey."""
+    from .models import Account
+    out = []
+    for d in Device.objects.filter(last_seen__gte=_active_since()).select_related("journey")[:60]:
+        last = d.log.order_by("-id").values("kind", "city", "place").first() if hasattr(d, "log") else None
+        party = (d.journey.state.get("party") or []) if d.journey else []
+        u = next((m.get("u") for m in party if m.get("name") == d.name and m.get("u")), "")
+        out.append({"name": d.name or "—", "u": u, "kind": d.kind or "desktop", "os": d.os, "browser": d.browser, "screen": d.screen,
+                    "ip": d.last_ip or "", "code": d.journey.code if d.journey else "", "city": city_name((last or {}).get("city") or (d.journey.state.get("city") if d.journey else "") or ""),
+                    "ago": int((timezone.now() - d.last_seen).total_seconds())})
+    _ = Account
+    return out
+
+
 @staff_member_required
 def live(request):
     since = int(request.GET.get("since") or 0)
     rows = [_row(e) for e in Event.objects.select_related("device", "journey").filter(id__gt=since)[:40]]
-    return JsonResponse({"rows": rows, "live": Device.objects.filter(last_seen__gte=_active_since()).count()})
+    on = _online()
+    return JsonResponse({"rows": rows, "live": len(on), "online": on,
+                         "split": {k: sum(1 for o in on if o["kind"] == k) for k in ("mobile", "tablet", "desktop")}})
+
+
+@staff_member_required
+def accounts_page(request):
+    from .models import Account
+    q = request.GET.get("q", "").strip().lstrip("@")
+    qs = Account.objects.all()
+    if q:
+        qs = qs.filter(Q(username__icontains=q) | Q(name__icontains=q) | Q(last_code__iexact=q))
+    page = Paginator(qs, 50).get_page(request.GET.get("page"))
+    since = _active_since()
+    rows = []
+    for a in page:
+        codes = list((a.trips or {}).keys())
+        js = {j.code: j for j in Journey.objects.filter(code__in=codes).prefetch_related("stamps", "devices")}
+        devs = [d for j in js.values() for d in j.devices.all() if d.name == a.name]
+        rows.append({"a": a, "trips": [js[c] for c in reversed(codes) if c in js][:6], "n": len(codes),
+                     "stamps": sum(j.stamps.count() for j in js.values()),
+                     "kinds": sorted({d.kind or "desktop" for d in devs}), "online": any(d.last_seen >= since for d in devs)})
+    stats = {"all": Account.objects.count(), "today": Account.objects.filter(seen__gte=timezone.localtime().replace(hour=0, minute=0, second=0)).count(),
+             "new7": Account.objects.filter(created__gte=timezone.now() - timedelta(days=7)).count()}
+    return render(request, "control/accounts.html", {"rows": rows, "page": page, "q": q, "stats": stats, "nav": "accounts"})
 
 
 # ----------------------------------------------------------------------------- memories

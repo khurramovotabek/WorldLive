@@ -153,9 +153,9 @@ class Event(models.Model):
         ordering = ["-created"]
 
 
-class ChatMessage(models.Model):
+class ChatMessage(models.Model):  # kinds: text · propose (a destination) · agree (a vote for it) · system
     """Travellers talk while they travel: plain notes and destination proposals."""
-    KIND = [("text", "text"), ("propose", "propose"), ("system", "system")]
+    KIND = [("text", "text"), ("propose", "propose"), ("agree", "agree"), ("system", "system")]
     journey = models.ForeignKey(Journey, related_name="chat", on_delete=models.CASCADE)
     author = models.CharField(max_length=40, blank=True)
     mid = models.CharField(max_length=16, blank=True)          # member id of the sender
@@ -170,3 +170,22 @@ class ChatMessage(models.Model):
     def as_dict(self):
         return {"id": self.id, "author": self.author, "mid": self.mid, "kind": self.kind, "text": self.text,
                 "data": self.data, "at": self.created.isoformat()}
+
+
+class Account(models.Model):
+    """A traveller: the unique @username is the login, a hashed 4-digit PIN protects it."""
+    username = models.CharField(max_length=20, unique=True)
+    pin = models.CharField(max_length=128)
+    name = models.CharField(max_length=40)
+    g = models.CharField(max_length=1, default="m")
+    photo = models.CharField(max_length=300, blank=True)
+    trips = models.JSONField(default=dict, blank=True)      # {journey code: member id}
+    last_code = models.CharField(max_length=8, blank=True)
+    created = models.DateTimeField(auto_now_add=True)
+    seen = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-seen"]
+
+    def __str__(self):
+        return f"@{self.username} ({self.name})"

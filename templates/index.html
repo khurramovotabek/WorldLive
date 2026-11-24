@@ -47,7 +47,9 @@
     </header>
 
     <aside id="dock" class="dock glass away">
+      <button class="dock-grip" id="dockGrip" type="button" aria-label="↕"><i></i></button>
       <button class="dock-min" id="dockMin" aria-label="–" title="–">–</button>
+      <button class="dock-fab" id="dockFab" type="button"><i>🧭</i><span data-i18n="destinations">Manzillar</span></button>
       <div class="dock-head">
         <div class="eyebrow" data-i18n="destinations">Manzillar</div>
         <h2 class="display" data-i18n="whereTogether">Birgalikda qayerga boramiz?</h2>
@@ -78,22 +80,27 @@
       <div class="eyebrow">Tashkent · 41.31° N 69.28° E</div>
       <h1 class="brand">World<i>Live</i></h1>
       <p class="slogan" data-i18n="slogan">Bitta dunyo. Ikki qalb. Cheksiz sayohatlar.</p>
+      <div id="inviteHost"></div>
+      <div class="acct" id="acct">
+        <div class="field acct-u"><label for="uname" data-i18n="uname">Username</label>
+          <div class="at-in"><span>@</span><input id="uname" maxlength="20" autocomplete="username" autocapitalize="off" spellcheck="false" inputmode="email" placeholder="aziz_travel"></div>
+          <small class="hint" id="unameHint" data-i18n="unameHint">Login — lotin harflar, raqam, _ va nuqta</small></div>
+        <div class="field acct-p"><label for="upin" data-i18n="pin">PIN</label>
+          <input id="upin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="current-password" placeholder="••••"></div>
+      </div>
+      <div class="acct-bar hidden" id="acctBar"></div>
       <div class="party" id="party">
         <div class="pm" data-i="0">
           <label class="pm-ph" title="Surat (ixtiyoriy)"><input type="file" accept="image/jpeg,image/png,image/webp" hidden><span>+</span></label>
-          <div class="field"><label for="nameA" data-i18n="you">Sizning ismingiz</label><input id="nameA" maxlength="40" autocomplete="given-name" autofocus></div>
-          <div class="pm-g seg"><button type="button" data-g="m" class="on" aria-label="Yigit">♂</button><button type="button" data-g="f" aria-label="Qiz">♀</button></div>
+          <div class="field"><label for="nameA" data-i18n="you">Sizning ismingiz</label><input id="nameA" maxlength="40" autocomplete="given-name"></div>
+          <div class="pm-g" role="radiogroup" aria-label="Jins"><button type="button" data-g="m" class="on" role="radio"><i>👨</i><span data-i18n="gBoy">Yigit</span></button><button type="button" data-g="f" role="radio"><i>👩</i><span data-i18n="gGirl">Qiz</span></button></div>
         </div>
-        <div class="pm" data-i="1">
-          <label class="pm-ph" title="Surat (ixtiyoriy)"><input type="file" accept="image/jpeg,image/png,image/webp" hidden><span>+</span></label>
-          <div class="field"><label for="nameB" data-i18n="partner">Hamrohingiz ismi</label><input id="nameB" maxlength="40" autocomplete="off"></div>
-          <div class="pm-g seg"><button type="button" data-g="m" aria-label="Yigit">♂</button><button type="button" data-g="f" class="on" aria-label="Qiz">♀</button></div>
-        </div>
-        <div class="party-more"><button type="button" class="linkish" id="addMate" data-i18n="addMate">+ Hamsafar qo‘shish</button><span class="faint" id="partyN"></span></div>
         <label class="consent hidden" id="consent"><input type="checkbox" id="consentBox"> <span data-i18n="photoConsent">Suratlar faqat shu sayohat ichida (personaj, otkritka, film) ishlatilishiga roziman. Istalgan payt o‘chirish mumkin.</span></label>
       </div>
+      <div class="trips hidden" id="trips"></div>
       <div class="intro-actions">
         <button class="btn btn-gold" id="startBtn"><span data-i18n="start">Sayohatni boshlash</span> →</button>
+        <p class="faint intro-how" id="introHow" data-i18n="introHow">Sayohatni boshlang — keyin hamrohingizni Telegram orqali taklif qilasiz.</p>
         <button class="linkish" id="joinToggle" data-i18n="joinToggle">Hamrohim kodi bilan qo‘shilish</button>
         <div id="joinBox" class="hidden"><div class="join-row field"><input id="joinCode" maxlength="8" data-i18n-ph="codePh" placeholder="KOD"><button class="btn btn-ghost" id="joinBtn" data-i18n="join">Qo‘shilish</button></div></div>
       </div>

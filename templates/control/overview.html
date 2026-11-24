@@ -8,10 +8,17 @@
 
 <section class="kpis">
   <div class="kpi glass"><span>Qurilmalar</span><b>{{ kpi.devices }}</b><small>jami noyob</small></div>
+  <div class="kpi glass"><span>Akkauntlar</span><b>{{ kpi.accounts }}</b><small>@username</small></div>
   <div class="kpi glass"><span>Juftliklar</span><b>{{ kpi.couples }}</b><small>{{ kpi.journeys }} sayohatdan</small></div>
   <div class="kpi glass"><span>Parvozlar</span><b>{{ kpi.flights }}</b><small>qo‘nishlar</small></div>
   <div class="kpi glass"><span>Masofa</span><b>{{ kpi.km }}</b><small>km birgalikda</small></div>
   <div class="kpi glass"><span>Bugungi qadamlar</span><b>{{ kpi.steps_today }}</b><small>harakatlar</small></div>
+</section>
+
+<section class="card glass online-card">
+  <div class="card-h"><h2><span class="pulse"></span> Hozir ilovada</h2>
+    <span class="split-pills" id="onSplit"><span>📱 <b data-k="mobile">0</b></span><span>📟 <b data-k="tablet">0</b></span><span>💻 <b data-k="desktop">0</b></span></span></div>
+  <div class="online" id="online">{% for o in online %}<div class="on-row"><span class="dev-ic">{% if o.kind == 'mobile' %}📱{% elif o.kind == 'tablet' %}📟{% else %}💻{% endif %}</span><div><b>{{ o.name }}</b>{% if o.u %} <small class="faint">@{{ o.u }}</small>{% endif %}<small>{{ o.os }} · {{ o.browser }} · {{ o.screen }}</small></div><div class="on-where">{% if o.city %}📍 {{ o.city }}{% endif %}{% if o.code %}<a href="/control/couple/{{ o.code }}">{{ o.code }}</a>{% endif %}</div></div>{% empty %}<p class="empty">Hozir hech kim yo‘q</p>{% endfor %}</div>
 </section>
 
 <section class="grid">
@@ -63,6 +70,9 @@
       try {
         const r = await (await fetch("/control/live?since=" + since, { credentials: "same-origin" })).json();
         liveN.textContent = r.live;
+        const ic = (k) => (k === "mobile" ? "📱" : k === "tablet" ? "📟" : "💻");
+        document.getElementById("online").innerHTML = r.online.length ? r.online.map((o) => `<div class="on-row"><span class="dev-ic">${ic(o.kind)}</span><div><b>${esc(o.name)}</b>${o.u ? ` <small class="faint">@${esc(o.u)}</small>` : ""}<small>${esc(o.os)} · ${esc(o.browser)} · ${esc(o.screen)}</small></div><div class="on-where">${o.city ? "📍 " + esc(o.city) : ""}${o.code ? `<a href="/control/couple/${esc(o.code)}">${esc(o.code)}</a>` : ""}</div></div>`).join("") : '<p class="empty">Hozir hech kim yo‘q</p>';
+        Object.entries(r.split).forEach(([k, n]) => { const b = document.querySelector(`#onSplit [data-k="${k}"]`); if (b) b.textContent = n; });
         r.rows.reverse().forEach((e) => {
           since = Math.max(since, e.id);
           feed.querySelector(".empty")?.remove();
