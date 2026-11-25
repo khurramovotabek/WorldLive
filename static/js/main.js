@@ -458,8 +458,7 @@ function book(to, quick) {
   if (quick === "agreed") {   // everyone voted yes in the chat: no forms — board together right away
     if (from.key === to.key) return openCity(to);
     track("fly", { city: to.key, d: { from: from.key, to: to.key, km, fno, dep: "now", agreed: true } });
-    push({ flight: { from: from.key, to: to.key, fno, dep: "now", at: Date.now() } });
-    return fly(from, to, { fno, dep: "now" });
+    return takeOff(from, to, { fno, dep: "now" });
   }
   const wrap = h(`<div class="modal-wrap"><div class="modal glass dense">
     <div class="eyebrow">SkyJourney · ${esc(L(from.name))} → ${esc(L(to.name))}</div>
@@ -494,11 +493,20 @@ function book(to, quick) {
   };
   $$(".seg button", wrap).forEach((b) => (b.onclick = () => { sel[b.closest(".seg").dataset.g] = b.dataset.v; renderPass(); }));
   wrap.onclick = (e) => { if (e.target === wrap || e.target.closest("[data-close]")) wrap.remove(); };
-  $("[data-board]", wrap).onclick = () => { wrap.remove(); track("fly", { city: to.key, d: { from: from.key, to: to.key, km: Math.round(distanceKm(from, to)), fno, dep: sel.dep } }); fly(from, to, { fno, dep: sel.dep }); push({ flight: { from: from.key, to: to.key, fno, dep: sel.dep, at: Date.now() } }); };
+  $("[data-board]", wrap).onclick = () => { wrap.remove(); track("fly", { city: to.key, d: { from: from.key, to: to.key, km: Math.round(distanceKm(from, to)), fno, dep: sel.dep } }); takeOff(from, to, { fno, dep: sel.dep }); };
   document.body.append(wrap); renderPass(); preloadBoarding();
 }
 
 // ----------------------------------------------------------------------------- flight
+// The booking device announces the flight in the shared state and flies. It marks the flight as its
+// own first, so its own sync poll never mistakes it for a companion's flight and flies it twice.
+function takeOff(from, to, { fno, dep }) {
+  if (WL.flying) return;
+  const at = Date.now();
+  WL._lastFlight = at;
+  push({ flight: { from: from.key, to: to.key, fno, dep, at } });
+  return fly(from, to, { fno, dep });
+}
 async function fly(from, to, { fno, dep, follower = false }) {
   if (WL.flying) return;
   WL.flying = true;
@@ -716,7 +724,8 @@ function startSync() {
       const jel = WL.scene._journalEl, cityMems = (WL.journey.memories || []).filter((m) => m.city === WL.scene.city?.key).length;
       if (jel?.isConnected && cityMems !== WL.scene._journalN && !jel.querySelector("[data-text]")?.value) WL.scene._journal(jel);
       // follow the partner
-      if (s.flight && s.flight.at > Date.now() - 20000 && !WL.flying && s.flight.at !== WL._lastFlight) {
+      if (s.flight && s.flight.at > Date.now() - 20000 && !WL.flying && s.flight.at !== WL._lastFlight
+          && s.flight.to !== WL.earth.current.key) {      // already there (e.g. landed a moment ago): nothing to follow
         WL._lastFlight = s.flight.at;
         if (WL.scene.city) backToGlobe();
         fly(byKey(s.flight.from), byKey(s.flight.to), { ...s.flight, follower: true });
