@@ -279,6 +279,13 @@ class Throttling(Api):
         codes = {self.post(f"/api/journey/{code}/chat", {"text": "hi"}).status_code for _ in range(45)}
         self.assertEqual(codes, {201})
 
+    @override_settings(WORLDLIVE_TRUST_PROXY=True)
+    def test_forged_forwarded_for_does_not_escape_the_limit(self):
+        code = self.journey()
+        codes = [self.post(f"/api/journey/{code}/chat", {"text": "hi"}, HTTP_X_FORWARDED_FOR=f"10.0.0.{i}, 203.0.113.7").status_code
+                 for i in range(45)]
+        self.assertEqual(codes.count(429), 5)
+
     def test_get_polling_is_not_throttled(self):
         code = self.journey()
         codes = {self.client.get(f"/api/journey/{code}").status_code for _ in range(300)}

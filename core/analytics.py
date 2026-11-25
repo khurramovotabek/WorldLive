@@ -25,7 +25,9 @@ MAX_EVENTS = 40
 def client_ip(request):
     ip = request.META.get("REMOTE_ADDR", "")
     if settings.WORLDLIVE_TRUST_PROXY:
-        fwd = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip()
+        # nginx appends the address it saw to whatever the client sent, so with one proxy in front
+        # the LAST entry is the real one; earlier entries are client-controlled and could be forged
+        fwd = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[-1].strip()
         ip = fwd or ip
     try:
         return str(ipaddress.ip_address(ip))
