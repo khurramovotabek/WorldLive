@@ -12,6 +12,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
 from .models import Account, Journey
+from .ratelimit import ratelimit
 
 USERNAME = re.compile(r"^[a-z0-9_.]{3,20}$")
 PIN = re.compile(r"^\d{4}$")
@@ -48,6 +49,7 @@ def me(request):
 
 
 @require_POST
+@ratelimit("acct-check", 60)
 def check(request):
     from .views import _body
     u = norm(_body(request).get("username"))
@@ -60,6 +62,7 @@ def check(request):
 
 
 @require_POST
+@ratelimit("acct-login", 20, 600)
 def login(request):
     """Sign in, or create the default account the first time a free username is used."""
     from .views import _body, _clean_name

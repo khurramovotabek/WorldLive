@@ -11,6 +11,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from .models import Device, DeviceIP, Event, Journey
+from .ratelimit import ratelimit
 
 KINDS = {
     "visit", "enter", "join", "lang", "preview", "book", "fly", "land", "city", "place", "tab",
@@ -61,6 +62,7 @@ def _s(v, n):
 
 @csrf_exempt  # sendBeacon cannot carry the CSRF header; this endpoint only appends analytics rows
 @require_POST
+@ratelimit("track", 120)
 def track(request):
     try:
         d = json.loads(request.body or b"{}")

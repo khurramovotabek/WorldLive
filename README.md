@@ -35,6 +35,20 @@ Optional — photorealistic 3D cities (Level 1, Google Map Tiles API, **billed**
 `GOOGLE_MAPS_API_KEY=... .venv/bin/python manage.py runserver` → "3D shahar" tab (CesiumJS, lazy-loaded).
 Restrict the key by HTTP referrer in Google Cloud.
 
+## Tests & operations
+```bash
+.venv/bin/python manage.py test core          # 31 API tests (journeys, party, chat, accounts, uploads, throttling)
+curl https://worldlive.uz/healthz              # {"ok": true, "db": true, "build": "<static build>"} — 503 if the DB is down
+```
+* **CI** — `.github/workflows/ci.yml` runs `check`, `check --deploy`, a missing-migrations check and the tests
+  against PostgreSQL 16 on every push and pull request.
+* **Throttling** — every public write endpoint is limited per IP (`core/ratelimit.py`, e.g. chat 40/min,
+  login 20/10 min, new journeys 20/10 min) and answers `429` + `Retry-After`; the UI shows one gentle toast.
+  `WORLDLIVE_RATELIMIT=0` switches it off. Polling (`GET`) is never throttled.
+* **Shared state is server-guarded** — `party` and `started` can only change through `/member` and `/ready`;
+  state patches are merged under a row lock (no lost updates between devices) and capped at 256 KB.
+* **Logging** goes to stdout → `journalctl -u worldlive`. Production refuses to boot without `DJANGO_SECRET_KEY`.
+
 ## Architecture
 | Layer | Files | Notes |
 |---|---|---|

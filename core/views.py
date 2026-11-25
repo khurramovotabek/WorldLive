@@ -6,7 +6,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.cache import cache
-from django.db import IntegrityError, models
+from django.db import IntegrityError, models, transaction
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -14,9 +14,39 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from . import accounts
 from .models import ChatMessage, Journey, Memory, Stamp, Track
+from .ratelimit import ratelimit
 from .realtime import notify
 
 AUDIO_EXT = {".mp3", ".ogg", ".oga", ".m4a", ".aac", ".wav", ".flac", ".opus", ".webm"}
+LANGS = {"uz", "en", "ru"}
+# keys of the shared state that only the server writes (see member / member_ready)
+SERVER_KEYS = {"party", "started"}
+MAX_STATE_BYTES = 256 * 1024        # the whole shared state; gifts/moments are capped client-side too
+
+
+def _client_state(raw):
+    """A client patch of the shared state: a dict, without server-owned keys."""
+    if not isinstance(raw, dict):
+        return {}
+    return {str(k)[:40]: v for k, v in raw.items() if k not in SERVER_KEYS}
+
+
+def _state_too_big(state):
+    return len(json.dumps(state, separators=(",", ":"))) > MAX_STATE_BYTES
+
+
+@require_GET
+def health(request):
+    """Liveness + database check for uptime monitors and the deploy script."""
+    from django.db import connection
+    try:
+        with connection.cursor() as c:
+            c.execute("SELECT 1")
+    except Exception:
+        return JsonResponse({"ok": False, "db": False}, status=503)
+    r = JsonResponse({"ok": True, "db": True, "build": settings.STATIC_BUILD})
+    r["Cache-Control"] = "no-store"
+    return r
 
 
 @ensure_csrf_cookie
@@ -51,43 +81,55 @@ def config(request):
 
 
 @require_POST
+@ratelimit("journey-create", 20, 600)
 def journey_create(request):
     d = _body(request)
     a = _clean_name(d.get("a"))
     if not a:
         return HttpResponseBadRequest("name required")
-    j = Journey.objects.create(traveler_a=a, traveler_b=_clean_name(d.get("b")),
-                               lang=(d.get("lang") or "uz")[:2], state=d.get("state") or {})
+    state = _client_state(d.get("state"))
+    if _state_too_big(state):
+        return JsonResponse({"error": "state too large"}, status=413)
+    lang = d.get("lang") if d.get("lang") in LANGS else "uz"
+    j = Journey.objects.create(traveler_a=a, traveler_b=_clean_name(d.get("b")), lang=lang, state=state)
     return JsonResponse(j.as_dict(), status=201)
 
 
 @require_http_methods(["GET", "POST"])
+@ratelimit("journey-sync", 240)
 def journey_detail(request, code):
-    j = get_object_or_404(Journey, code=code.upper())
     if request.method == "GET":
+        j = get_object_or_404(Journey, code=code.upper())
         since = request.GET.get("v")
         if since is not None and since.isdigit() and int(since) >= j.version:
             return JsonResponse({"version": j.version, "unchanged": True})
         return JsonResponse(j.as_dict())
     d = _body(request)
-    if "b" in d and _clean_name(d["b"]):
-        j.traveler_b = _clean_name(d["b"])
-    if isinstance(d.get("state"), dict):
-        j.state = {**j.state, **d["state"]}
-    j.version += 1
-    j.save()
+    # row lock: two devices patching at the same moment must not erase each other's keys
+    with transaction.atomic():
+        j = get_object_or_404(Journey.objects.select_for_update(), code=code.upper())
+        if "b" in d and _clean_name(d["b"]):
+            j.traveler_b = _clean_name(d["b"])
+        state = {**j.state, **_client_state(d.get("state"))}
+        if _state_too_big(state):
+            return JsonResponse({"error": "state too large"}, status=413)
+        j.state = state
+        j.version += 1
+        j.save()
     notify(j.code, {"t": "v", "v": j.version})
     return JsonResponse({"version": j.version, "state": j.state, "b": j.traveler_b})
 
 
 @require_POST
+@ratelimit("stamp", 60)
 def stamp_add(request, code):
     j = get_object_or_404(Journey, code=code.upper())
     d = _body(request)
     try:
-        Stamp.objects.create(journey=j, city=str(d.get("city", ""))[:40],
-                             country=str(d.get("country", ""))[:2],
-                             flight_no=str(d.get("flight", ""))[:12])
+        with transaction.atomic():        # savepoint: a duplicate city must not poison the connection
+            Stamp.objects.create(journey=j, city=str(d.get("city", ""))[:40],
+                                 country=str(d.get("country", ""))[:2],
+                                 flight_no=str(d.get("flight", ""))[:12])
         j.version += 1
         j.save(update_fields=["version", "updated"])
         notify(j.code, {"t": "v", "v": j.version})
@@ -97,16 +139,24 @@ def stamp_add(request, code):
 
 
 @require_POST
+@ratelimit("memory", 30)
 def memory_add(request, code):
+    import datetime
     j = get_object_or_404(Journey, code=code.upper())
     d = _body(request)
     text = str(d.get("text", "")).strip()[:2000]
     if not text:
         return HttpResponseBadRequest("text required")
+    open_on = None
+    if d.get("open_on"):
+        try:
+            open_on = datetime.date.fromisoformat(str(d["open_on"])[:10])
+        except ValueError:
+            return HttpResponseBadRequest("open_on must be YYYY-MM-DD")
     m = Memory.objects.create(journey=j, kind=d.get("kind") if d.get("kind") in ("note", "photo", "postcard", "gift") else "note",
                               city=str(d.get("city", ""))[:40], place=str(d.get("place", ""))[:120],
                               author=_clean_name(d.get("author")), text=text,
-                              open_on=d.get("open_on") or None)
+                              open_on=open_on)
     j.version += 1
     j.save(update_fields=["version", "updated"])
     notify(j.code, {"t": "v", "v": j.version})
@@ -114,6 +164,7 @@ def memory_add(request, code):
 
 
 @require_http_methods(["GET", "POST"])
+@ratelimit("tracks", 20)
 def tracks(request, code):
     j = get_object_or_404(Journey, code=code.upper())
     if request.method == "GET":
@@ -139,6 +190,7 @@ def tracks(request, code):
 
 
 @require_POST
+@ratelimit("tracks-del", 30)
 def track_delete(request, code, tid):
     t = get_object_or_404(Track, id=tid, journey__code=code.upper())
     if t.file:
@@ -172,6 +224,8 @@ def sp_oembed(tid):
 _PREVIEW_CC = re.compile(r"^[A-Z]{2}$")
 
 
+@require_GET
+@ratelimit("preview", 120, methods=("GET",))
 def preview(request, track_id):
     """Redirect to the current Apple Music 30-second preview for a catalogue track.
 
@@ -224,6 +278,7 @@ AVATAR_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"
 
 
 @require_POST
+@ratelimit("avatar", 10)
 def avatar(request, code):
     import uuid
 
@@ -266,10 +321,10 @@ def _member_out(j):
 
 
 @require_POST
+@ratelimit("member", 30)
 def member(request, code):
     import secrets as _s
 
-    from django.db import transaction
     d = _body(request)
     name = _clean_name(d.get("name"))
     if not name:
@@ -307,8 +362,8 @@ def member(request, code):
 
 
 @require_POST
+@ratelimit("ready", 60)
 def member_ready(request, code):
-    from django.db import transaction
     d = _body(request)
     with transaction.atomic():
         j = get_object_or_404(Journey.objects.select_for_update(), code=code.upper())
@@ -329,6 +384,7 @@ def member_ready(request, code):
 
 
 @require_http_methods(["GET", "POST"])
+@ratelimit("chat", 40)
 def chat(request, code):
     j = get_object_or_404(Journey, code=code.upper())
     if request.method == "GET":
@@ -358,16 +414,24 @@ def chat(request, code):
 
 
 # ----------------------------------------------------------------------------- memory album
+_WORLD = {"mtime": None, "data": None}
+
+
 def _world():
-    from functools import lru_cache  # noqa: F401  (kept simple: the file is small and read rarely)
+    """world.json, parsed once and re-read only when sync_world rewrites the file."""
     p = settings.BASE_DIR / "static" / "data" / "world.json"
-    return json.loads(p.read_text())
+    mtime = p.stat().st_mtime
+    if _WORLD["mtime"] != mtime:
+        _WORLD["data"], _WORLD["mtime"] = json.loads(p.read_text()), mtime
+    return _WORLD["data"]
 
 
 def album(request, code):
     """A printable keepsake of the whole journey: one chapter per city, with notes, gifts and postcards."""
     j = get_object_or_404(Journey, code=code.upper())
     lang = request.GET.get("lang") or j.lang or "uz"
+    if lang not in LANGS:
+        lang = "uz"
     w = _world()
     cities = {c["key"]: c for c in w["cities"]}
     pick = lambda d: (d or {}).get(lang) or (d or {}).get("en") or ""  # noqa: E731

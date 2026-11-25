@@ -99,8 +99,21 @@ export async function api(path, opts = {}) {
   if (opts.body) { init.headers["Content-Type"] = "application/json"; init.body = JSON.stringify(opts.body); }
   if (opts.form) init.body = opts.form;
   const r = await fetch("/api/" + path, init);
-  if (!r.ok) throw new Error(await r.text() || r.statusText);
+  if (!r.ok) {
+    if (r.status === 429) throttled();
+    const err = new Error(await r.text() || r.statusText);
+    err.status = r.status;
+    throw err;
+  }
   return r.json();
+}
+// the server throttles each IP (core/ratelimit.py); say so once instead of failing silently
+let throttledAt = 0;
+function throttled() {
+  if (Date.now() - throttledAt < 30000) return;
+  throttledAt = Date.now();
+  const msg = { uz: "Juda tez — bir daqiqa kuting", ru: "Слишком быстро — подождите минуту", en: "Too fast — please wait a minute" };
+  toast(msg[document.documentElement.lang] || msg.uz);
 }
 // upload with progress (fetch has no upload progress)
 export function upload(path, form, onProgress) {
@@ -109,7 +122,11 @@ export function upload(path, form, onProgress) {
     x.open("POST", "/api/" + path);
     x.setRequestHeader("X-CSRFToken", csrf());
     x.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total);
-    x.onload = () => (x.status < 300 ? res(JSON.parse(x.responseText)) : rej(new Error(x.responseText)));
+    x.onload = () => {
+      if (x.status < 300) return res(JSON.parse(x.responseText));
+      if (x.status === 429) throttled();
+      rej(Object.assign(new Error(x.responseText), { status: x.status }));
+    };
     x.onerror = () => rej(new Error("network"));
     x.send(form);
   });
